@@ -1,0 +1,154 @@
+
+
+<div class="app-shell">
+    <div class="sidebar">
+        <div class="logo-inline">
+            <div class="logo-icon">?</div>
+            <div class="logo-text">GradeMaster</div>
+        </div>
+
+        <nav class="nav">
+            <a href="/dashboard" class="nav-item active">Dashboard</a>
+            <a href="/students" class="nav-item">Students</a>
+            <a href="/classes" class="nav-item">Classes</a>
+            <a href="/subjects" class="nav-item">Subjects</a>
+            <a href="/grades" class="nav-item">Grades</a>
+            <a href="/bulletins" class="nav-item">Bulletins</a>
+            <a href="/reports" class="nav-item">Reports</a>
+            <a href="/settings" class="nav-item">Settings</a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <a href="/logout" class="nav-item logout">Logout</a>
+        </div>
+    </div>
+
+    <div class="main">
+        <header class="topbar">
+            <div class="topbar-title">Dashboard</div>
+            <div class="topbar-right">
+                <span class="topbar-role">Admin</span>
+                <div class="topbar-user">
+                    <span class="avatar"></span>
+                    <button class="link-button">Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <main class="content">
+            <div class="cards-row">
+                <div class="kpi-card">
+                    <div class="kpi-label">Total Students</div>
+                    <div class="kpi-value">@metrics.TotalStudents</div>
+                    <div class="kpi-sub">Across all grades and classes</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Total Classes</div>
+                    <div class="kpi-value">@metrics.TotalClasses</div>
+                    <div class="kpi-sub">Active classes this semester</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Total Subjects</div>
+                    <div class="kpi-value">@metrics.TotalSubjects</div>
+                    <div class="kpi-sub">Core and elective subjects</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Average Grade</div>
+                    <div class="kpi-value">@metrics.AverageGrade%</div>
+                    <div class="kpi-sub">Overall student performance</div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2>Grade Distribution</h2>
+                    </div>
+                    <div class="panel-body chart-placeholder">
+                        <!-- future chart -->
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2>Class Performance Comparison</h2>
+                    </div>
+                    <div class="panel-body chart-placeholder">
+                        <!-- future chart -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>Recent Activities</h2>
+                </div>
+                <div class="panel-body">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Event</th>
+                                <th>User</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in activities)
+                            {
+                                <tr>
+                                    <td>@item.Event</td>
+                                    <td>@item.User</td>
+                                    <td>@item.Date</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>Quick Actions</h2>
+                </div>
+                <div class="panel-body quick-actions">
+                    <button class="primary-button">Add New Student</button>
+                    <button class="secondary-button">Add/Edit Grade</button>
+                    <button class="secondary-button">Generate Bulletin</button>
+                </div>
+            </div>
+
+            <footer class="footer-main">
+                © 2025 GradeMaster. All rights reserved.
+            </footer>
+        </main>
+    </div>
+</div>
+
+@code {
+    private DashboardMetrics metrics = new()
+    {
+        TotalStudents = 543,
+        TotalClasses = 12,
+        TotalSubjects = 7,
+        AverageGrade = 88.5m
+    };
+
+    private List<ActivityItem> activities = new()
+    {
+        new ActivityItem("Grade updated for Alice Smith in Math", "Mr. Davis", "2023-10-26 14:30"),
+        new ActivityItem("New student John Doe enrolled in Grade 10", "Admin", "2023-10-26 10:15"),
+        new ActivityItem("Class 'Biology 101' created by Mrs. White", "Admin", "2023-10-25 16:00"),
+        new ActivityItem("Report generated for Semester 1, Class 9A", "Mrs. Green", "2023-10-25 09:00"),
+        new ActivityItem("Assignment 'Algebra Test' added to Math", "Mr. Davis", "2023-10-24 11:45")
+    };
+
+    class DashboardMetrics
+    {
+        public int TotalStudents { get; set; }
+        public int TotalClasses { get; set; }
+        public int TotalSubjects { get; set; }
+        public decimal AverageGrade { get; set; }
+    }
+
+    record ActivityItem(string Event, string User, string Date);
+}

@@ -1,0 +1,141 @@
+* {
+    box-sizing: border-box;
+    font-family: Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
+}
+
+.auth-wrapper {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f7f9fc;
+    padding: 20px
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 430px;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 20px 40px rgba(15,23,42,.08);
+    padding: 32px
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px
+}
+
+.logo-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: #0ea5e9;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700
+}
+
+.logo-text {
+    font-size: 22px;
+    font-weight: 700;
+    color: #0ea5e9
+}
+
+h1 {
+    text-align: center;
+    font-size: 22px;
+    color: #0f172a;
+    margin-bottom: 8px
+}
+
+.subtitle {
+    text-align: center;
+    font-size: 14px;
+    color: #64748b;
+    margin-bottom: 26px;
+    line-height: 1.4
+}
+
+.form-group {
+    margin-bottom: 16px
+}
+
+label {
+    display: block;
+    font-size: 13px;
+    margin-bottom: 6px;
+    color: #0f172a;
+    font-weight: 500
+}
+
+input, select {
+    width: 100%;
+    height: 46px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0 14px;
+    font-size: 14px
+}
+
+    input:focus, select:focus {
+        outline: none;
+        border-color: #0ea5e9;
+        box-shadow: 0 0 0 3px rgba(14,165,233,.15)
+    }
+
+.password-field {
+    position: relative
+}
+
+.eye {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    border: 2px solid #94a3b8;
+    border-radius: 50%
+}
+
+button {
+    width: 100%;
+    height: 48px;
+    border: none;
+    border-radius: 12px;
+    background: #0ea5e9;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer
+}
+
+    button:hover {
+        background: #0284c7
+    }
+
+.footer {
+    text-align: center;
+    margin-top: 18px;
+    font-size: 14px;
+    color: #64748b
+}
+
+    .footer a {
+        color: #0ea5e9;
+        text-decoration: none;
+        font-weight: 500
+    }
+
+@media(max-width:420px) {
+    .auth-card {
+        padding: 24px
+    }
+}
+

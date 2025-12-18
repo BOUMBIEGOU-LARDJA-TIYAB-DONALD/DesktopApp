@@ -1,0 +1,62 @@
+
+
+
+<div class="auth-card">
+    <div class="logo">
+        <div class="logo-icon">?</div>
+        <div class="logo-text">GradeMaster</div>
+    </div>
+
+    <h1>Welcome to GradeMaster</h1>
+    <p class="subtitle">
+        Sign in to manage your student grades and academic data.
+    </p>
+
+    <EditForm Model="@model" OnValidSubmit="Submit">
+        <div class="form-group">
+            <label>Email or Username</label>
+            <InputText @bind-Value="model.EmailOrUsername" placeholder="Enter your email or username" />
+        </div>
+
+        <div class="form-group password-field">
+            <label>Password</label>
+            <InputText type="password" @bind-Value="model.Password" placeholder="Enter your password" />
+            <span class="eye"></span>
+        </div>
+
+        <div class="form-group">
+            <label>Role</label>
+            <InputSelect @bind-Value="model.Role">
+                <option>Student</option>
+                <option>Teacher</option>
+                <option>Administrator</option>
+            </InputSelect>
+        </div>
+
+
+    <div class="footer">
+        <a href="/forgot-password">Forgot password?</a>
+        </div>
+        <button type="submit">Sign In</button>
+    </EditForm>
+
+    <div class="footer">
+        Don’t have an account? <a href="/signup">Sign Up</a>
+    </div>
+</div>
+
+@code {
+    private LoginModel model = new();
+
+    void Submit()
+    {
+        // TODO: Appel Baleor / auth backend
+    }
+
+    class LoginModel
+    {
+        public string EmailOrUsername { get; set; } = "";
+        public string Password { get; set; } = "";
+        public string Role { get; set; } = "Student";
+    }
+}

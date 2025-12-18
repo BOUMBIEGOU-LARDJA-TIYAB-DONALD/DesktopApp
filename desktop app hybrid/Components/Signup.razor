@@ -1,0 +1,67 @@
+﻿<div class="auth-card">
+    <div class="logo">
+        <div class="logo-icon">✓</div>
+        <div class="logo-text">GradeMaster</div>
+    </div>
+
+    <h1>Create Your GradeMaster Account</h1>
+    <p class="subtitle">
+        Unlock efficient student grading and management. Join GradeMaster today!
+    </p>
+
+    <EditForm Model="@model" OnValidSubmit="Submit">
+        <div class="form-group">
+            <label>Email</label>
+            <InputText @bind-Value="model.Email" placeholder="Enter your email" />
+        </div>
+
+        <div class="form-group">
+            <label>Username</label>
+            <InputText @bind-Value="model.Username" placeholder="Choose a username" />
+        </div>
+
+        <div class="form-group password-field">
+            <label>Password</label>
+            <InputText type="password" @bind-Value="model.Password" placeholder="Create a strong password" />
+            <span class="eye"></span>
+        </div>
+
+        <div class="form-group password-field">
+            <label>Confirm Password</label>
+            <InputText type="password" @bind-Value="model.ConfirmPassword" placeholder="Confirm your password" />
+            <span class="eye"></span>
+        </div>
+
+        <div class="form-group">
+            <label>Role</label>
+            <InputSelect @bind-Value="model.Role">
+                <option>Student</option>
+                <option>Teacher</option>
+                <option>Administrator</option>
+            </InputSelect>
+        </div>
+
+        <button type="submit">Create Account</button>
+    </EditForm>
+
+    <div class="footer">
+        Already have an account? <a href="/login">Sign In</a>
+    </div>
+</div>
+
+@code {
+    private SignupModel model = new();
+
+    void Submit()
+    {
+    }
+
+    class SignupModel
+    {
+        public string Email { get; set; } = "";
+        public string Username { get; set; } = "";
+        public string Password { get; set; } = "";
+        public string ConfirmPassword { get; set; } = "";
+        public string Role { get; set; } = "Student";
+    }
+}
