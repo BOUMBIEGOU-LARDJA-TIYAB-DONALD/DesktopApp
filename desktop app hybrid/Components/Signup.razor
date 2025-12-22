@@ -1,6 +1,11 @@
-﻿<div class="auth-card">
+﻿@using desktop_app_hybrid.Services
+@inject AuthService Auth
+@inject NavigationManager Nav
+@using System.ComponentModel.DataAnnotations
+
+<div class="auth-card">
     <div class="logo">
-        <div class="logo-icon">✓</div>
+        <img class="logo-icon" src="https://i.ibb.co/yF9Ct6Vh/e45cad7b-df02-42d6-a6ee-1cbb9de115ab.jpg">
         <div class="logo-text">GradeMaster</div>
     </div>
 
@@ -10,58 +15,164 @@
     </p>
 
     <EditForm Model="@model" OnValidSubmit="Submit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        @if (message != null)
+        {
+            <p style="font-weight:bolder">@message</p>
+        }
+
         <div class="form-group">
             <label>Email</label>
-            <InputText @bind-Value="model.Email" placeholder="Enter your email" />
+            <InputText @bind-Value="model.Email" />
         </div>
 
         <div class="form-group">
             <label>Username</label>
-            <InputText @bind-Value="model.Username" placeholder="Choose a username" />
+            <InputText @bind-Value="model.Username" />
         </div>
 
-        <div class="form-group password-field">
+        <div class="form-group">
+            <label>Nom</label>
+            <InputText @bind-Value="model.Nom" />
+        </div>
+
+        <div class="form-group">
+            <label>Prenoms</label>
+            <InputText @bind-Value="model.Prenoms" />
+        </div>
+
+        <div class="form-group">
             <label>Password</label>
-            <InputText type="password" @bind-Value="model.Password" placeholder="Create a strong password" />
-            <span class="eye"></span>
+            <!-- input HTML + oninput handler that accepts ChangeEventArgs -->
+            <input type="password"
+                   value="@model.Password"
+                   @oninput="OnPasswordInput"
+                   class="form-control" />
         </div>
 
-        <div class="form-group password-field">
+        <div class="form-group">
             <label>Confirm Password</label>
-            <InputText type="password" @bind-Value="model.ConfirmPassword" placeholder="Confirm your password" />
-            <span class="eye"></span>
+            <input type="password"
+                   value="@model.ConfirmPassword"
+                   @oninput="OnConfirmPasswordInput"
+                   class="form-control" />
         </div>
+
+        @if (mes != null)
+        {
+            <p style="color:@colorvar;font-weight:bold">@mes</p>
+        }
 
         <div class="form-group">
             <label>Role</label>
             <InputSelect @bind-Value="model.Role">
-                <option>Student</option>
-                <option>Teacher</option>
-                <option>Administrator</option>
+                <option value="etudiants">etudiants</option>
+                <option value="enseignants">enseignants</option>
             </InputSelect>
         </div>
 
-        <button type="submit">Create Account</button>
+        <button type="submit" disabled="@odiasble">Create Account</button>
     </EditForm>
 
     <div class="footer">
-        Already have an account? <a href="/login">Sign In</a>
+        Already have an account? <a href="/login">Se connecter</a>
     </div>
 </div>
 
 @code {
-    private SignupModel model = new();
+    string? message;
+    string? mes;
+    string colorvar = "green";
+    bool odiasble = true;
 
-    void Submit()
+    SignupModel model = new();
+
+    // Handlers that accept ChangeEventArgs (no conversion error)
+    Task OnPasswordInput(ChangeEventArgs e)
     {
+        model.Password = e?.Value?.ToString() ?? "";
+        CheckPasswords();
+        return Task.CompletedTask;
+    }
+
+    Task OnConfirmPasswordInput(ChangeEventArgs e)
+    {
+        model.ConfirmPassword = e?.Value?.ToString() ?? "";
+        CheckPasswords();
+        return Task.CompletedTask;
+    }
+
+    void CheckPasswords()
+    {
+        if (!string.IsNullOrWhiteSpace(model.Password)
+            && model.Password == model.ConfirmPassword)
+        {
+            mes = "Les deux mots de passe correspondent";
+            colorvar = "green";
+            odiasble = false;
+        }
+        else
+        {
+            mes = "Les deux mots de passe ne correspondent pas";
+            colorvar = "red";
+            odiasble = true;
+        }
+        // Force UI update if needed (rare): StateHasChanged();
+    }
+
+    async Task Submit()
+    {
+        int it = model.Role == "enseignants" ? 1 : 0;
+        int ist = model.Role == "etudiants" ? 1 : 0;
+
+
+
+
+        bool success = await Auth.SignupAsync(
+            model.Username,
+            model.Email,
+            model.Password,
+            it,
+            ist,
+            model.Nom,
+            model.Prenoms,
+            model.Role
+        );
+        if (success)
+        {
+            message = "Compte créé avec succès. Redirection...";
+            Nav.NavigateTo("/login");
+        }
+        else
+        {
+            message = "Erreur lors de la création du compte.";
+        }
     }
 
     class SignupModel
     {
+        [Required, EmailAddress]
         public string Email { get; set; } = "";
+
+        [Required]
         public string Username { get; set; } = "";
+
+        [Required]
+        public string Nom { get; set; } = "";
+
+        [Required]
+        public string Prenoms { get; set; } = "";
+
+
+        [Required, MinLength(6)]
         public string Password { get; set; } = "";
+
+        [Required, Compare(nameof(Password))]
         public string ConfirmPassword { get; set; } = "";
-        public string Role { get; set; } = "Student";
+
+        [Required]
+        public string Role { get; set; } = "etudiants";
     }
 }

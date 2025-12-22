@@ -1,0 +1,160 @@
+﻿
+<div class="app-shell">
+    <div class="sidebar">
+        <!-- même sidebar -->
+    </div>
+
+    <div class="main">
+        <header class="topbar">
+            <div class="topbar-title">@model.FullName's Profile</div>
+            <div class="topbar-right">
+                <span class="topbar-role">Teacher</span>
+                <div class="topbar-user">
+                    <span class="avatar"></span>
+                    <button class="link-button">Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <main class="content">
+            <div class="page-header-row">
+                <h1>@model.FullName's Profile</h1>
+                <div class="header-actions">
+                    <button class="secondary-button">Edit Student</button>
+                    <button class="secondary-button">Export Bulletin (PDF)</button>
+                    <button class="secondary-button">Print</button>
+                    <button class="primary-button">Quick Add Grade</button>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="panel">
+                    <div class="panel-body profile-header">
+                        <div class="profile-avatar-large"></div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2>Personal Details</h2>
+                    </div>
+                    <div class="panel-body two-columns">
+                        <div>
+                            <div class="detail-row"><span>Full Name:</span><span>@model.FullName</span></div>
+                            <div class="detail-row"><span>Date of Birth:</span><span>@model.DateOfBirth</span></div>
+                            <div class="detail-row"><span>Age:</span><span>@model.Age</span></div>
+                            <div class="detail-row"><span>Class:</span><span>@model.Class</span></div>
+                            <div class="detail-row"><span>Absences:</span><span>@model.Absences</span></div>
+                            <div class="detail-row"><span>Late Arrivals:</span><span>@model.LateArrivals</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>Contact Information</h2>
+                </div>
+                <div class="panel-body two-columns">
+                    <div class="detail-row"><span>Email:</span><span>@model.Email</span></div>
+                    <div class="detail-row"><span>Phone:</span><span>@model.Phone</span></div>
+                    <div class="detail-row"><span>Address:</span><span>@model.Address</span></div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>Enrollment Details</h2>
+                </div>
+                <div class="panel-body two-columns">
+                    <div class="detail-row"><span>Enrollment Date:</span><span>@model.EnrollmentDate</span></div>
+                    <div class="detail-row"><span>Status:</span><span>@model.Status</span></div>
+                    <div class="detail-row"><span>Guardian:</span><span>@model.Guardian</span></div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>Academic Performance (Current Semester)</h2>
+                </div>
+                <div class="panel-body">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Subject</th>
+                                <th>Assignment Grade</th>
+                                <th>Exam Grade</th>
+                                <th>Subject Average</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var g in subjectGrades)
+                            {
+                                <tr>
+                                    <td>@g.Subject</td>
+                                    <td>@g.Assignment</td>
+                                    <td>@g.Exam</td>
+                                    <td>@g.Average</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <footer class="footer-main">
+                © 2025 GradeMaster. All rights reserved.
+            </footer>
+        </main>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? Id { get; set; }
+
+    private StudentProfileModel model = new()
+    {
+        FullName = "Alice Johnson",
+        DateOfBirth = "01/15/2008",
+        Age = 16,
+        Class = "10A",
+        Absences = 5,
+        LateArrivals = 2,
+        Email = "alice.johnson@example.com",
+        Phone = "+1 555‑123‑4567",
+        Address = "123 Oak Avenue, Springfield, IL 62704",
+        EnrollmentDate = "09/01/2022",
+        Status = "Active",
+        Guardian = "Maria Johnson"
+    };
+
+    private List<SubjectGradeItem> subjectGrades = new()
+    {
+        new SubjectGradeItem("Mathematics", 88, 92, 90.0m),
+        new SubjectGradeItem("Science", 75, 80, 77.5m),
+        new SubjectGradeItem("History", 95, 88, 91.5m),
+        new SubjectGradeItem("English Literature", 82, 85, 83.5m),
+        new SubjectGradeItem("Art & Design", 90, 94, 92.0m),
+        new SubjectGradeItem("Physical Education", 78, 82, 80.0m)
+    };
+
+    record SubjectGradeItem(string Subject, decimal Assignment, decimal Exam, decimal Average);
+
+    class StudentProfileModel
+    {
+        public string FullName { get; set; } = "";
+        public string DateOfBirth { get; set; } = "";
+        public int Age { get; set; }
+        public string Class { get; set; } = "";
+        public int Absences { get; set; }
+        public int LateArrivals { get; set; }
+
+        public string Email { get; set; } = "";
+        public string Phone { get; set; } = "";
+        public string Address { get; set; } = "";
+
+        public string EnrollmentDate { get; set; } = "";
+        public string Status { get; set; } = "";
+        public string Guardian { get; set; } = "";
+    }
+}

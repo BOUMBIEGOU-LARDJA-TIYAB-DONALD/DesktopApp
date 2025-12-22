@@ -1,9 +1,12 @@
-
+﻿@using desktop_app_hybrid.Services
+@inject AuthService Auth
+@inject NavigationManager Nav
+@using System.ComponentModel.DataAnnotations
 
 
 <div class="auth-card">
     <div class="logo">
-        <div class="logo-icon">?</div>
+        <img class="logo-icon" src="https://i.ibb.co/yF9Ct6Vh/e45cad7b-df02-42d6-a6ee-1cbb9de115ab.jpg">
         <div class="logo-text">GradeMaster</div>
     </div>
 
@@ -13,14 +16,19 @@
     </p>
 
     <EditForm Model="@model" OnValidSubmit="Submit">
+        <DataAnnotationsValidator />
+
         <div class="form-group">
             <label>Email or Username</label>
-            <InputText @bind-Value="model.EmailOrUsername" placeholder="Enter your email or username" />
+            <InputText @bind-Value="model.EmailOrUsername"
+                       placeholder="Enter your email or username" />
         </div>
 
         <div class="form-group password-field">
             <label>Password</label>
-            <InputText type="password" @bind-Value="model.Password" placeholder="Enter your password" />
+            <InputText type="password"
+                       @bind-Value="model.Password"
+                       placeholder="Enter your password" />
             <span class="eye"></span>
         </div>
 
@@ -33,30 +41,56 @@
             </InputSelect>
         </div>
 
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <p class="error" stryle="color:red;font-weight:bolder;">@error</p>
+        }
 
-    <div class="footer">
-        <a href="/forgot-password">Forgot password?</a>
+        <div class="footer">
+            <a href="/forgot-password">Forgot password?</a>
         </div>
+
         <button type="submit">Sign In</button>
     </EditForm>
 
     <div class="footer">
-        Don�t have an account? <a href="/signup">Sign Up</a>
+        Don’t have an account? <a href="/signup">Sign Up</a>
     </div>
 </div>
 
 @code {
     private LoginModel model = new();
+    private string? error;
 
-    void Submit()
+    private async Task Submit()
     {
-        // TODO: Appel Baleor / auth backend
+        error = null;
+
+        var success = await Auth.LoginAsync(
+            model.EmailOrUsername,
+            model.Password
+        );
+
+        if (success)
+        {
+            await SecureStorage.SetAsync("userRole", model.Role);
+            await SecureStorage.SetAsync("username", model.EmailOrUsername);
+            Nav.NavigateTo("/profile");
+        }
+        else
+        {
+            error = "Invalid username or password";
+        }
     }
 
     class LoginModel
     {
+        [Required]
         public string EmailOrUsername { get; set; } = "";
+
+        [Required]
         public string Password { get; set; } = "";
+
         public string Role { get; set; } = "Student";
     }
 }

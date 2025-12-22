@@ -1,9 +1,10 @@
-
+@inject AuthService Auth
+@inject NavigationManager Nav
 
 <div class="app-shell">
     <div class="sidebar">
         <div class="logo-inline">
-            <div class="logo-icon">?</div>
+            <img class="logo-icon" src="https://i.ibb.co/yF9Ct6Vh/e45cad7b-df02-42d6-a6ee-1cbb9de115ab.jpg">
             <div class="logo-text">GradeMaster</div>
         </div>
 
@@ -27,7 +28,7 @@
         <header class="topbar">
             <div class="topbar-title">Dashboard</div>
             <div class="topbar-right">
-                <span class="topbar-role">Admin</span>
+                <span class="topbar-role">@role</span>
                 <div class="topbar-user">
                     <span class="avatar"></span>
                     <button class="link-button">Logout</button>
@@ -125,6 +126,12 @@
 </div>
 
 @code {
+
+    string role;
+    protected override async Task OnInitializedAsync()
+    {
+        role = await SecureStorage.GetAsync("userRole");
+    }
     private DashboardMetrics metrics = new()
     {
         TotalStudents = 543,
