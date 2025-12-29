@@ -1,118 +1,291 @@
-﻿
+﻿@using System.Data
+@inject AuthService Auth
+@inject NavigationManager Nav
+@inject IJSRuntime JS
 <div class="app-shell">
+    <!-- SIDEBAR -->
     <div class="sidebar">
-        <!-- même sidebar -->
+        <div class="logo-inline">
+            <img class="logo-icon" src="https://i.ibb.co/yF9Ct6Vh/e45cad7b-df02-42d6-a6ee-1cbb9de115ab.jpg">
+            <div class="logo-text">GradeMaster</div>
+        </div>
+        <Navbar />
+
+        <div class="sidebar-footer">
+            <a href="/login" class="nav-item">🚪 Déconnexion</a>
+        </div>
     </div>
 
+    <!-- MAIN CONTENT -->
     <div class="main">
+        <!-- TOPBAR -->
         <header class="topbar">
-            <div class="topbar-title">@model.FullName's Profile</div>
+            <div class="topbar-title">Profil de @studentData.FullName</div>
             <div class="topbar-right">
-                <span class="topbar-role">Teacher</span>
+                <span class="topbar-role">@userRole</span>
                 <div class="topbar-user">
-                    <span class="avatar"></span>
-                    <button class="link-button">Logout</button>
+                    <img class="avatar" src="@link">
+                    <a href="/login" class="link-button">Déconnexion</a>
                 </div>
             </div>
         </header>
 
-        <main class="content">
-            <div class="page-header-row">
-                <h1>@model.FullName's Profile</h1>
-                <div class="header-actions">
-                    <button class="secondary-button">Edit Student</button>
-                    <button class="secondary-button">Export Bulletin (PDF)</button>
-                    <button class="secondary-button">Print</button>
-                    <button class="primary-button">Quick Add Grade</button>
-                </div>
-            </div>
+        <!-- CONTENT AREA -->
+        <div class="content profile-page">
+            <div class="content-inner">
 
-            <div class="grid-2">
-                <div class="panel">
-                    <div class="panel-body profile-header">
-                        <div class="profile-avatar-large"></div>
+                <!-- HEADER: Titre + Actions -->
+                <div class="profile-header-row">
+                    <h1>Profil de @studentData.FullName</h1>
+                    <div class="profile-header-actions">
+                        <button class="secondary-button" @onclick="EditStudent">✏️ Modifier @userRole</button>
+                        @if(userRole=="etudiants"){
+                       
+                        <button class="secondary-button" @onclick="ExportPDF">📥 Exporter Bulletin (PDF)</button>
+                        <button class="secondary-button" @onclick="PrintProfile">🖨️ Imprimer</button>
+                        }
+
+                        <button class="primary-button" @onclick="QuickAddGrade">⚡ Ajouter Note Rapide</button>
                     </div>
                 </div>
 
-                <div class="panel">
-                    <div class="panel-header">
-                        <h2>Personal Details</h2>
+                <!-- TOP GRID: Avatar + Personal Details -->
+                <div class="profile-top-grid">
+                    <!-- Avatar Card -->
+                    <div class="profile-avatar-card">
+                        <img class="profile-avatar-large" src="@link">
                     </div>
-                    <div class="panel-body two-columns">
-                        <div>
-                            <div class="detail-row"><span>Full Name:</span><span>@model.FullName</span></div>
-                            <div class="detail-row"><span>Date of Birth:</span><span>@model.DateOfBirth</span></div>
-                            <div class="detail-row"><span>Age:</span><span>@model.Age</span></div>
-                            <div class="detail-row"><span>Class:</span><span>@model.Class</span></div>
-                            <div class="detail-row"><span>Absences:</span><span>@model.Absences</span></div>
-                            <div class="detail-row"><span>Late Arrivals:</span><span>@model.LateArrivals</span></div>
+
+                    <!-- Personal Details Card -->
+                    <div class="profile-details-card">
+                        <div class="panel-header">
+                            <h2>Informations Personnelles</h2>
+                        </div>
+                        <div class="profile-details-grid">
+                            <div class="detail-row">
+                                <span>Matricule:</span>
+                                <span>@studentData.Matricule</span>
+                            </div>
+                            <div class="detail-row">
+                                <span>Nom Complet:</span>
+                                <span>@studentData.FullName</span>
+                            </div>
+                            <div class="detail-row">
+                                <span>Date de Naissance:</span>
+                                <span>@studentData.DateOfBirth</span>
+                            </div>
+                            <div class="detail-row">
+                                <span>Âge:</span>
+                                <span>@studentData.Age</span>
+                            </div>
+                            @if(userRole=="etudiants"){
+                            <div class="detail-row">
+                                <span>Classe:</span>
+                                <span>@studentData.Class</span>
+                            </div>
+                                <div class="detail-row">
+                                    <span>Filiere:</span>
+                                    <span>@filiere</span>
+                                </div>
+
+                            }
+                            @if(userRole=="etudiants"){
+                            <div class="detail-row">
+                                <span>Absences:</span>
+                                <span>@studentData.Absences</span>
+                            </div>
+                            }else{
+                            <div class="detail-row">
+                                <span>Niveau:</span>
+                                <span>@studentData.Class</span>
+                            </div>
+                            }
+                            @if(userRole=="etudiants"){
+                            <div class="detail-row">
+                                <span>Retards:</span>
+                                <span>@studentData.LateArrivals</span>
+                            </div>
+                            }
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="panel">
-                <div class="panel-header">
-                    <h2>Contact Information</h2>
-                </div>
-                <div class="panel-body two-columns">
-                    <div class="detail-row"><span>Email:</span><span>@model.Email</span></div>
-                    <div class="detail-row"><span>Phone:</span><span>@model.Phone</span></div>
-                    <div class="detail-row"><span>Address:</span><span>@model.Address</span></div>
-                </div>
-            </div>
+                <!-- Contact & Enrollment (2 columns) -->
+                <div class="profile-two-column-section">
+                    <!-- Contact Information -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h2>Informations de Contact</h2>
+                        </div>
+                        <div class="profile-details-grid">
+                            <div class="detail-row">
+                                <span>Email:</span>
+                                <span>@studentData.Email</span>
+                            </div>
+                            <div class="detail-row">
+                                <span>Téléphone:</span>
+                                <span>@studentData.Phone</span>
+                            </div>
+                            <div class="detail-row">
+                                <span>Adresse:</span>
+                                <span>@studentData.Address</span>
+                            </div>
+                        </div>
+                    </div>
 
-            <div class="panel">
-                <div class="panel-header">
-                    <h2>Enrollment Details</h2>
-                </div>
-                <div class="panel-body two-columns">
-                    <div class="detail-row"><span>Enrollment Date:</span><span>@model.EnrollmentDate</span></div>
-                    <div class="detail-row"><span>Status:</span><span>@model.Status</span></div>
-                    <div class="detail-row"><span>Guardian:</span><span>@model.Guardian</span></div>
-                </div>
-            </div>
-
-            <div class="panel">
-                <div class="panel-header">
-                    <h2>Academic Performance (Current Semester)</h2>
-                </div>
-                <div class="panel-body">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Subject</th>
-                                <th>Assignment Grade</th>
-                                <th>Exam Grade</th>
-                                <th>Subject Average</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var g in subjectGrades)
-                            {
-                                <tr>
-                                    <td>@g.Subject</td>
-                                    <td>@g.Assignment</td>
-                                    <td>@g.Exam</td>
-                                    <td>@g.Average</td>
-                                </tr>
+                    <!-- Enrollment Details -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h2>Détails d'Inscription</h2>
+                        </div>
+                        <div class="profile-details-grid">
+                            <div class="detail-row">
+                                <span>Date d'Inscription:</span>
+                                <span>@studentData.EnrollmentDate</span>
+                            </div>
+                            <div class="detail-row">
+                                <span>Statut:</span>
+                                <span><span class="badge" style="@badge">@sbasge</span></span>
+                            </div>
+                            @if(userRole=="etudiants"){
+                            <div class="detail-row">
+                                <span>Parrain:</span>
+                                <span>@studentData.Guardian</span>
+                            </div>
                             }
-                        </tbody>
-                    </table>
+                        </div>
+                    </div>
                 </div>
-            </div>
+                @if(userRole=="etudiants"){
+                <!-- Academic Performance -->
+                <div class="panel profile-academic-panel">
+                    <div class="panel-header">
+                        <h2>Performance Académique (Semestre Actuel)</h2>
+                    </div>
+                    <div class="panel-body">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Matière</th>
+                                    <th>Note de Devoir</th>
+                                    <th>Note d'Examen</th>
+                                    <th>Moyenne de la Matière</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var grade in academicGrades)
+                                {
+                                    <tr>
+                                        <td>@grade.Subject</td>
+                                        <td style="color: #2563eb; font-weight: 600;">@grade.AssignmentGrade</td>
+                                        <td style="color: #2563eb; font-weight: 600;">@grade.ExamGrade</td>
+                                        <td style="color: #2563eb; font-weight: 600;">@grade.Average</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                }
+                <!-- Footer -->
+                <div class="footer-main">
+                    © 2025 GradeMaster. Tous droits réservés.
+                </div>
 
-            <footer class="footer-main">
-                © 2025 GradeMaster. All rights reserved.
-            </footer>
-        </main>
+            </div>
+        </div>
+    </div>
+    @if (showEditForm)
+    {
+        <div class="edit-overlay" @onclick="CancelEdit"></div>
+    }
+    <div class="edit-form-container @(showEditForm ? "show" : "")">
+        <form class="edit-form" @onsubmit="SubmitEdit">
+            <h2>✏️ Modifier l'Étudiant</h2>
+
+            <div class="form-grid">
+
+                <input placeholder="Nom" @bind="editStudent.Nom" />
+                <input placeholder="Lien pour la photo IMGBB" @bind="editStudent.link" />
+                <input placeholder="Prénom" @bind="editStudent.Prenom" />
+
+                <InputSelect @bind-Value="editStudent.Class" placeholder="classe">
+                    @if (userRole == "etudiants")
+                    {
+                        <option value="B1">B1</option>
+                        <option value="B2">B2</option>
+                        <option value="B3">B3</option>
+                        <option value="M1">M1</option>
+                        <option value="M2">M2</option>
+                    }
+                    else
+                    {
+                        <option value="BTS">BTS</option>
+                        <option value="License">License</option>
+                        <option value="MASTER">Master</option>
+                        <option value="Doctorat">Doctorat</option>
+                        <option value="Professorat">Professorat</option>
+                    }
+                </InputSelect>
+            </div>
+            <div class="form-grid">
+                <InputSelect @bind-Value="editStudent.Filiere" placeholder="filiere">
+                    <option value="ASI">ASI</option>
+                    <option value="IABD">IABD</option>
+                    <option value="MD">MD</option>
+                    <option value="BF">BF</option>
+                    <option value="MGMT">MGMT</option>
+                </InputSelect>
+                @if(userRole == "enseignants" || userRole == "Admin"){
+                    <input placeholder="Email" @bind="editStudent.Email" />
+                    <input placeholder="Heures d'absence" @bind="editStudent.abs" />
+                    <input placeholder="Nombre de retards" @bind="editStudent.ret" />
+                }
+
+                <input placeholder="Téléphone" @bind="editStudent.Phone" />
+                <input placeholder="Adresse" @bind="editStudent.Address" />
+
+                <input type="date" @bind="editStudent.dob" placeholder="Date de Naissance" />
+                <input type="date" @bind="editStudent.doa" placeholder="Date d'enrolement'e" />
+                @if(userRole == "enseignants" || userRole == "Admin"){
+                    <input placeholder="Statut" @bind="editStudent.Status" />
+                }
+                <InputSelect @bind-Value="editStudent.Status" placeholder="Status">
+                    <option value=1>Actif</option>
+                    <option value=0>Inactif</option>
+                </InputSelect>
+                <InputSelect @bind-Value="editStudent.Sexe" placeholder="Sexe">
+                    <option value="M">M</option>
+                    <option value="F">F</option>
+                </InputSelect>
+                @if(userRole == "enseignants" || userRole == "Admin"){
+                    <input placeholder="Responsable légal" @bind="editStudent.Guardian" />
+                }
+
+            </div>
+            <div class="form-actions">
+                <button type="button" class="secondary-button" @onclick="CancelEdit">
+                    Annuler
+                </button>
+
+                <button type="submit" class="primary-button">
+                    Enregistrer
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 
 @code {
-    [Parameter] public string? Id { get; set; }
+    [Parameter]
+    public string? StudentId { get; set; }
+    public string link;
+    public string userRole = "Teacher";
+    public string filiere;
+    public string badge;
+    public string sbasge;
 
-    private StudentProfileModel model = new()
+    private StudentProfileData studentData = new()
     {
         FullName = "Alice Johnson",
         DateOfBirth = "01/15/2008",
@@ -121,40 +294,284 @@
         Absences = 5,
         LateArrivals = 2,
         Email = "alice.johnson@example.com",
-        Phone = "+1 555‑123‑4567",
+        Phone = "+1 555-123-4567",
         Address = "123 Oak Avenue, Springfield, IL 62704",
         EnrollmentDate = "09/01/2022",
-        Status = "Active",
-        Guardian = "Maria Johnson"
+        Status = 1,
+        Guardian = "-- --"
     };
 
-    private List<SubjectGradeItem> subjectGrades = new()
+    private bool showEditForm = false;
+    private List<AcademicGradeItem> academicGrades = new()
     {
-        new SubjectGradeItem("Mathematics", 88, 92, 90.0m),
-        new SubjectGradeItem("Science", 75, 80, 77.5m),
-        new SubjectGradeItem("History", 95, 88, 91.5m),
-        new SubjectGradeItem("English Literature", 82, 85, 83.5m),
-        new SubjectGradeItem("Art & Design", 90, 94, 92.0m),
-        new SubjectGradeItem("Physical Education", 78, 82, 80.0m)
+        new AcademicGradeItem("-", 00, 00, 0.0m),
+        new AcademicGradeItem("-", 00, 00, 0.0m),
+        new AcademicGradeItem("-", 00, 00, 0.0m),
+        new AcademicGradeItem("-", 00, 00, 0.0m),
+        new AcademicGradeItem("-", 00, 00, 0.0m),
+        new AcademicGradeItem("-", 00, 00, 0.0m)
     };
 
-    record SubjectGradeItem(string Subject, decimal Assignment, decimal Exam, decimal Average);
+    protected override async Task OnInitializedAsync()
+    {
 
-    class StudentProfileModel
+        // Charger les données de l'étudiant selon StudentId
+        if (!string.IsNullOrEmpty(StudentId))
+        {
+            // TODO: Appeler API pour récupérer les données
+            // studentData = await ApiService.GetStudent(StudentId);
+        }
+
+        // Initialiser 'results' ici, car 'Auth' est injecté après la construction
+
+        string role = await SecureStorage.GetAsync("userRole");
+        userRole = role;
+        var mailoru = await SecureStorage.GetAsync("username");
+        string vrole = role;
+        if (role == "Admin")
+        {
+            vrole = "enseignants";
+        }
+        var result = new DataTable();
+
+        if (role == "enseignants"|| role=="Admin")
+        {
+            result = await Auth.Selector("*", $"enseignants e ", $"id_user = (select id_user from utilisateurs where email = '{mailoru}' or username = '{mailoru}'); ");
+        }
+        if (role == "etudiants")
+        {
+            result = await Auth.Selector("e.*, c.id_classe,c.libelle AS classe,c.filiere AS filiere2", $"etudiants e left join classes c on e.id_classe=c.id_classe", $"id_user = (select id_user from utilisateurs where email = '{mailoru}' or username = '{mailoru}'); ");
+            var academicresult = await Auth.Selector(
+          "et.id_etud, et.nom as nom_etud, et.prenom, c.libelle as classe, et.filiere as fil1, " +
+          "n.type_note, n.valeur, m.id_mat, m.nom as nom_mat, m.filiere as fil2, " +
+          "m.credits, m.semestre, u.email",
+
+          "etudiants et " +
+          "join classes c on et.id_classe = c.id_classe " +
+          "join utilisateurs u on et.id_user = u.id_user " +
+          "join notes n on n.id_etud = et.id_etud " +
+          "join matieres m on n.id_mat = m.id_mat " +
+          "join enseignants es on m.id_ens = es.id_ens",
+
+          $"(u.username = '{mailoru}' OR u.email = '{mailoru}')"
+          );
+
+            if (academicresult.Rows.Count > 0)
+            {
+                academicGrades.Clear();
+                await JS.InvokeVoidAsync("console.log", $"academicresult found {academicresult.Rows.Count} rows");
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("console.log", "No academicresult found");
+            }
+
+            foreach (DataRow row in academicresult.Rows)
+            {
+                string subject = row["nom_mat"] + "";
+                int assignmentGrade = 0;
+                int examGrade = 0;
+                if ((row["type_note"] + "") == "CC")
+                {
+                    assignmentGrade = int.TryParse(row["valeur"] + "", out var val) ? val : 0;
+                }
+                else if ((row["type_note"] + "") == "Exam")
+                {
+                    examGrade = int.TryParse(row["valeur"] + "", out var val) ? val : 0;
+                }
+                decimal average = (assignmentGrade + examGrade) / 2m;
+                var existingGrade = academicGrades.FirstOrDefault(g => g.Subject == subject);
+                if (existingGrade != null)
+                {
+                    // Mettre à jour les notes existantes
+                    existingGrade = existingGrade with
+                        {
+                            AssignmentGrade = assignmentGrade != 0 ? assignmentGrade : existingGrade.AssignmentGrade,
+                            ExamGrade = examGrade != 0 ? examGrade : existingGrade.ExamGrade,
+                            Average = (existingGrade.AssignmentGrade + existingGrade.ExamGrade) / 2m
+                        };
+                }
+                else
+                {
+                    // Ajouter une nouvelle entrée
+                    academicGrades.Add(new AcademicGradeItem(subject, assignmentGrade, examGrade, average));
+                }
+            }
+        }
+
+        var rvraimail = await Auth.Selector("email", "utilisateurs", $"email='{mailoru}' or username = '{mailoru}'");
+        string vraimail = rvraimail.Rows.Count > 0 ? rvraimail.Rows[0]["email"] + "" : mailoru;
+        studentData.Email = vraimail;
+        if (result.Rows.Count > 0)
+        {
+            await JS.InvokeVoidAsync("console.log", result.Rows[0]["nom"]);
+            studentData.FullName = result.Rows[0]["nom"] + " " + result.Rows[0]["prenom"];
+            studentData.Phone = result.Rows[0]["num"]+" ";
+            studentData.DateOfBirth = (result.Rows[0]["dob"] + "").Replace("00:00:00","");
+            studentData.Address = result.Rows[0]["addresse"] + "";
+            if (userRole == "etudiants")
+            {
+                studentData.Absences = int.TryParse(result.Rows[0]["nb_heure_abs"] + "", out var abs) ? abs : 0;
+                studentData.LateArrivals = int.TryParse(result.Rows[0]["retards"] + "", out var ret) ? ret : 0;
+
+                studentData.Class = result.Rows[0]["classe"] + "";
+                filiere = result.Rows[0]["filiere2"] + "";
+                badge = Convert.ToInt32(result.Rows[0]["Statu"]) + "" == "1" ? "" : "color: #fff; background-color: rgba(255,0,0,0.8); padding: 6px 10px; border-radius: 4px; font-weight: bold;";
+                sbasge = Convert.ToInt32(result.Rows[0]["Statu"]) + "" == "1" ? "Actif" : "Inactif"; 
+                studentData.Matricule = result.Rows[0]["matricule"] + "";
+                
+            }
+            else
+            {
+                studentData.Class = result.Rows[0]["niveau"] + "";
+            }
+            studentData.EnrollmentDate = (result.Rows[0]["doa"] + "").Replace("00:00:00", "");
+            try
+            {
+                TimeSpan ageSpan = DateTime.Now - DateTime.Parse(studentData.DateOfBirth);
+                studentData.Age = (int)(ageSpan.TotalDays / 365.25);
+            }
+            catch 
+            {
+                await JS.InvokeVoidAsync("alert", "Erreur de calcul de l'âge");
+
+            }
+
+
+            studentData.link = result.Rows[0]["img"]+"";
+            link = studentData.link;
+
+            await JS.InvokeVoidAsync("console.log", $"fillname: {studentData.FullName} ");
+            await JS.InvokeVoidAsync("console.log", $"link: {studentData.link} ");
+            await JS.InvokeVoidAsync("console.log", $"email: {studentData.Email} ");
+            await JS.InvokeVoidAsync("console.log", $"date of birth: {studentData.DateOfBirth} ");
+            await JS.InvokeVoidAsync("console.log", $"address: {studentData.Address} ");
+            await JS.InvokeVoidAsync("console.log", $"phone: {studentData.Phone} ");
+            await JS.InvokeVoidAsync("console.log", $"class: {studentData.Class} ");
+
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("console.log", "Aucune donnée d'étudiant trouvée.");
+        }
+    }
+
+    private EditStudentModel editStudent = new();
+    // Handlers pour les boutons
+    private async void EditStudent()
+    {
+        Console.WriteLine("Edit student clicked");
+        var parts = studentData.FullName.Split(' ', 2);
+        string role = await SecureStorage.GetAsync("userRole");
+        string mailoru = await SecureStorage.GetAsync("username");
+
+        editStudent.Nom = parts.Length > 0 ? parts[0] : "";
+        editStudent.Prenom = parts.Length > 1 ? parts[1] : "";
+        editStudent.Class = studentData.Class;
+        editStudent.Email = studentData.Email;
+        editStudent.Phone = studentData.Phone;
+        editStudent.dob = DateTime.TryParse(studentData.DateOfBirth, out var dob) ? dob : DateTime.Today;
+        editStudent.Address = studentData.Address;
+        editStudent.Status = studentData.Status;
+        editStudent.Guardian = studentData.Guardian;
+        editStudent.link = studentData.link;
+        editStudent.doa = DateTime.TryParse(studentData.EnrollmentDate, out var doa) ? doa : DateTime.Today;
+
+
+        showEditForm = true;
+
+        await JS.InvokeVoidAsync("openEditForm");
+
+    }
+
+    private void ExportPDF()
+    {
+        Console.WriteLine("Export PDF clicked");
+        // TODO: Générer et télécharger PDF
+    }
+
+    private void PrintProfile()
+    {
+        Console.WriteLine("Print clicked");
+        // TODO: Ouvrir dialogue d'impression
+    }
+
+    private void QuickAddGrade()
+    {
+        Console.WriteLine("Quick Add Grade clicked");
+        // TODO: Ouvrir modal d'ajout de note
+    }
+    private async void SubmitEdit()
+    {
+        string role = await SecureStorage.GetAsync("userRole");
+        string mailoru = await SecureStorage.GetAsync("username");
+        await JS.InvokeVoidAsync("console.log", $"{editStudent.Class},{editStudent.Filiere}");
+        bool success = await Auth.updater(editStudent.Nom, editStudent.Prenom, editStudent.Phone, editStudent.Class, editStudent.Filiere, editStudent.Address, studentData.Absences, editStudent.Sexe, studentData.LateArrivals, mailoru, role,editStudent.dob,editStudent.link,editStudent.Status,editStudent.doa);
+
+        if (success)
+        {
+            await JS.InvokeVoidAsync("alert", $"{role} mis à jour avec succès.");
+            //-await JS.InvokeVoidAsync("alert", $"lien mis {editStudent.link} ");
+            showEditForm = false;
+            await JS.InvokeVoidAsync("closeEditForm");
+            await OnInitializedAsync();
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("alert", "Erreur lors de la mise à jour de l'étudiant.");
+            await JS.InvokeVoidAsync("alert", 
+                $"Nom: {editStudent.Nom}, Prénom: {editStudent.Prenom}, Téléphone: {editStudent.Phone}, Classe: {editStudent.Class}, Filière: {editStudent.Filiere}, Adresse: {editStudent.Address}, Absences: {studentData.Absences}, Sexe: {editStudent.Sexe}, Retards: {studentData.LateArrivals}, Username: {mailoru}, Rôle: {role}");
+        }
+    }
+    private async void CancelEdit()
+    {
+        editStudent = new EditStudentModel();
+        showEditForm = false;
+
+        await JS.InvokeVoidAsync("closeEditForm");
+    }
+
+    // Modèles de données
+    class StudentProfileData
     {
         public string FullName { get; set; } = "";
+        public string link { get; set; } = "";
         public string DateOfBirth { get; set; } = "";
         public int Age { get; set; }
         public string Class { get; set; } = "";
         public int Absences { get; set; }
         public int LateArrivals { get; set; }
-
         public string Email { get; set; } = "";
         public string Phone { get; set; } = "";
         public string Address { get; set; } = "";
-
         public string EnrollmentDate { get; set; } = "";
-        public string Status { get; set; } = "";
+        public int Status { get; set; } 
         public string Guardian { get; set; } = "";
+        public string Matricule { get; set; } = "";
     }
+    class EditStudentModel
+    {
+        public string Nom { get; set; } = "";
+        public string link { get; set; } = "";
+        public string Prenom { get; set; } = "";
+        public string Class { get; set; } = "classe/niveau";
+        public string Email { get; set; } = "";
+        public string Phone { get; set; } = "";
+        public string Address { get; set; } = "";
+        public DateTime dob { get; set; }
+        public DateTime doa { get; set; }
+        public int Status { get; set; } 
+        public string Guardian { get; set; } = "";
+        public string Filiere { get; set; } = "filiere";
+        public char Sexe { get; set; } = 'M';
+        public int abs { get; set; }
+        public int ret { get; set; }
+    }
+
+    record AcademicGradeItem(string Subject, int AssignmentGrade, int ExamGrade, decimal Average);
 }
+
+
+
+
+

@@ -1,0 +1,526 @@
+﻿@inject AuthService Auth
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Data
+
+<div class="app-shell">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="logo-inline">
+            <img class="logo-icon" src="https://i.ibb.co/yF9Ct6Vh/e45cad7b-df02-42d6-a6ee-1cbb9de115ab.jpg">
+            <div class="logo-text">GradeMaster</div>
+        </div>
+        <Navbar />
+        <div class="sidebar-footer">
+            <a href="/login" class="nav-item">🚪 Déconnexion</a>
+        </div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+        <header class="topbar">
+            <div class="topbar-title">Matières</div>
+            <div class="topbar-right">
+                <span class="topbar-role">@userRole</span>
+                <div class="topbar-user">
+                    <span class="avatar"></span>
+                    <a href="/login" class="link-button">Déconnexion</a>
+                </div>
+            </div>
+        </header>
+
+        <main class="content subjects-page">
+            <div class="content-inner">
+
+                <!-- Header + actions -->
+                <div class="subjects-header-row">
+                    <h1>Aperçu des Matières</h1>
+
+                    @if (userRole == "Admin" || userRole == "enseignants")
+                    {
+                        <button class="primary-button subjects-add-btn" type="button" @onclick="OpenAddModal">
+                            ➕ Ajouter Matière
+                        </button>
+                    }
+                </div>
+
+                <!-- Filtres (admin uniquement) -->
+                @if (userRole == "Admin")
+                {
+                    <div class="subjects-filters-row">
+                        <div>
+                            <label>Enseignant</label>
+                            <select @bind="selectedTeacher">
+                                <option value="">Tous les enseignants</option>
+                                @foreach (var t in allTeachers)
+                                {
+                                    <option>@t</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                }
+
+                <!-- Liste des matières -->
+                <div class="subjects-panel">
+                    <div class="subjects-table-wrapper">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Nom de la Matière</th>
+                                    <th>Enseignant</th>
+                                    <th>Crédits</th>
+                                    <th>classe</th>
+                                    <th>Semestre</th>
+                                    <th>Horaire</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var s in FilteredSubjects)
+                                {
+                                    <tr>
+                                        <td>@s.Name</td>
+                                        <td>@s.TeacherUsername</td>
+                                        <td>@s.Credits</td>
+                                        <td>@s.classe</td>
+                                        <td>@s.Semestre</td>
+                                        <td>@s.Schedule</td>
+                                        <td class="actions-cell">
+                                            @if (CanEditSubject(s))
+                                            {
+                                                <button class="link-button" type="button" @onclick="() => EditSubject(s)">✏️ Modifier</button>
+                                                <button class="link-button danger" type="button" @onclick="() => DeleteSubject(s)">🗑 Supprimer</button>
+                                            }
+                                            else
+                                            {
+                                                <span class="subjects-readonly-tag">Lecture seule</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+
+                                @if (!FilteredSubjects.Any())
+                                {
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted">
+                                            Aucune matière à afficher pour cette vue.
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <footer class="footer-main">
+                    © 2025 GradeMaster. Tous droits réservés.
+                </footer>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- OVERLAY + FORMULAIRE EDIT -->
+@if (showEditForm)
+{
+    <div class="edit-overlay" @onclick="CancelEdit"></div>
+}
+<div class="edit-form-container @(showEditForm ? "show" : "")">
+    <form class="edit-form" @onsubmit="SubmitEdit">
+        <h2>✏️ Modifier Matière</h2>
+
+        <div class="form-grid">
+            <input type="text" placeholder="Ancien de la Matière" @bind="editSubjectModel.OldName" disabled/>
+            <input type="text" placeholder="Nouveau  de la Matière(laissez vide si inchangé)" @bind="editSubjectModel.NewName" />
+            <input type="number" placeholder="Crédits" @bind="editSubjectModel.Credits" />
+
+            <select @bind="editSubjectModel.Filiere">
+                <option value="ASI">ASI</option>
+                <option value="IABD">IABD</option>
+                <option value="MD">MD</option>
+                <option value="BF">BF</option>
+                <option value="MGMT">MGMT</option>
+            </select>
+            @* <label>classe</label> *@
+
+            <select @bind="editSubjectModel.Classe">
+                <option value="B1">B1</option>
+                <option value="B2">B2</option>
+                <option value="B3">B3</option>
+                <option value="M1">M1</option>
+                <option value="M2">M2</option>
+            </select>
+            <select @bind="editSubjectModel.Semestre">
+                <option value="1">Semestre 1</option>
+                <option value="2">Semestre 2</option>
+            </select>
+
+            <input type="text" placeholder="Horaire (ex: Lun & Mer - 09:00)" @bind="editSubjectModel.Schedule" />
+
+            @if (userRole == "enseignants")
+            {
+                <input type="text" placeholder="Enseignant (lecture seule)" @bind="editSubjectModel.TeacherUsername" disabled />
+            }
+            else if (userRole == "Admin")
+            {
+                <input type="text" placeholder="Enseignant (username/email)" @bind="editSubjectModel.TeacherUsername" />
+            }
+        </div>
+
+        <div class="form-actions">
+            <button type="button" class="secondary-button" @onclick="CancelEdit">
+                Annuler
+            </button>
+            <button type="submit" class="primary-button">
+                Enregistrer
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- OVERLAY + FORMULAIRE ADD -->
+@if (showAddForm)
+{
+    <div class="edit-overlay" @onclick="CancelAdd"></div>
+}
+<div class="edit-form-container @(showAddForm ? "show" : "")">
+    <form class="edit-form" @onsubmit="SubmitAdd">
+        <h2>➕ Ajouter Matière</h2>
+
+        <div class="form-grid">
+            <input type="text" placeholder="Nom de la Matière" @bind="newSubjectModel.NewName" />
+            <input type="number" placeholder="Crédits" @bind="newSubjectModel.Credits" />
+            @* <label>classe</label> *@
+
+            <select @bind="newSubjectModel.Classe">
+                <option value="B1">B1</option>
+                <option value="B2">B2</option>
+                <option value="B3">B3</option>
+                <option value="M1">M1</option>
+                <option value="M2">M2</option>
+            </select>
+            <select @bind="newSubjectModel.Filiere">
+                <option value="ASI">ASI</option>
+                <option value="IABD">IABD</option>
+                <option value="MD">MD</option>
+                <option value="BF">BF</option>
+                <option value="MGMT">MGMT</option>
+            </select>
+
+            <select @bind="newSubjectModel.Semestre">
+                <option value="1">Semestre 1</option>
+                <option value="2">Semestre 2</option>
+            </select>
+
+            <input type="text" placeholder="Horaire (ex: Lun & Mer - 09:00)" @bind="newSubjectModel.Schedule" />
+
+            @if (userRole == "enseignants")
+            {
+                <input type="text" placeholder="Enseignant (lecture seule)" @bind="newSubjectModel.TeacherUsername" disabled />
+            }
+            else if (userRole == "Admin")
+            {
+                <input type="text" placeholder="Enseignant (username/email)" @bind="newSubjectModel.TeacherUsername" />
+            }
+        </div>
+
+        <div class="form-actions">
+            <button type="button" class="secondary-button" @onclick="CancelAdd">
+                Annuler
+            </button>
+            <button type="submit" class="primary-button">
+                Enregistrer
+            </button>
+        </div>
+    </form>
+</div>
+
+
+@code {
+    private string userRole = "etudiants";
+    private string currentTeacherUsername = "david.smith@example.com";
+
+    private string selectedTeacher = "";
+
+    // Modals
+    private bool showEditForm = false;
+    private bool showAddForm = false;
+
+    private EditSubjectModel editSubjectModel = new();
+    private EditSubjectModel newSubjectModel = new();
+
+    private List<SubjectItem> subjectsList = new List<SubjectItem>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        userRole = await SecureStorage.GetAsync("userRole") ?? "etudiants";
+        string mailoru = await SecureStorage.GetAsync("username") ?? "sql";
+
+        // [ChatGPT] On garde ta requête telle quelle (pas de sécurisation SQL ici)
+        if(string.IsNullOrWhiteSpace(mailoru))
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+        if(userRole != "Admin" && userRole != "enseignants")
+        {
+            Nav.NavigateTo("/profile");
+            return;
+        }
+        var results = new DataTable();
+        if (userRole == "Admin")
+        {
+            results = await Auth.Selector(
+                "m.nom,m.credits,m.filiere,m.semestre,u.username ,c.libelle as classe , c.filiere",
+                "[utilisateurs] u JOIN enseignants e ON e.id_user = u.id_user JOIN matieres m ON m.id_ens = e.id_ens join classes c on m.id_classe=c.id_classe",
+                "1=1"
+            );
+        }
+        else
+        {
+            results = await Auth.Selector(
+               "m.nom,m.credits,m.filiere,m.semestre, c.libelle as classe , c.filiere",
+               "[utilisateurs] u JOIN enseignants e ON e.id_user = u.id_user JOIN matieres m ON m.id_ens = e.id_ens join classes c on m.id_classe=c.id_classe",
+               $"(u.username='{mailoru}' or email='{mailoru}')"
+           );
+        }
+        if (userRole == "enseignants")
+        {
+            currentTeacherUsername = mailoru;
+        }
+
+        subjectsList = new List<SubjectItem>();
+        if (userRole == "Admin")
+        {
+            foreach (DataRow row in results.Rows)
+            {
+                await JS.InvokeVoidAsync("console.log", row["classe"].ToString());
+                subjectsList.Add(new SubjectItem(
+                   
+                    row["nom"].ToString(),
+                    row["username"].ToString(),
+                    Convert.ToInt32(row["credits"]),
+                    row["classe"].ToString() + ' ' + row["filiere"].ToString(),
+                    row["filiere"].ToString(),
+                    Convert.ToInt32(row["semestre"]),
+                    "--:--:--"
+                ));
+            }
+            return;
+        }
+        else
+        {
+            foreach (DataRow row in results.Rows)
+            {
+                subjectsList.Add(new SubjectItem(
+                    
+                    row["nom"].ToString(),
+                    mailoru,
+                    Convert.ToInt32(row["credits"]),
+                    row["classe"].ToString() + ' ' + row["filiere"].ToString(),
+                    row["filiere"].ToString(),
+                    Convert.ToInt32(row["semestre"]),
+                    "--:--:--"
+                ));
+            }
+        }
+    }
+
+    private IEnumerable<string> allTeachers =>
+        subjectsList.Select(s => s.TeacherUsername).Distinct().OrderBy(x => x);
+
+    private IEnumerable<SubjectItem> FilteredSubjects =>
+        userRole switch
+        {
+            "Admin" => FilterByTeacher(subjectsList),
+            "enseignants" => subjectsList.Where(s => s.TeacherUsername == currentTeacherUsername),
+            _ => Enumerable.Empty<SubjectItem>()
+        };
+
+    private IEnumerable<SubjectItem> FilterByTeacher(IEnumerable<SubjectItem> list) =>
+        string.IsNullOrWhiteSpace(selectedTeacher)
+            ? list
+            : list.Where(s => s.TeacherUsername == selectedTeacher);
+
+    private bool CanEditSubject(SubjectItem subject)
+    {
+        if (userRole == "Admin")
+            return true;
+
+        if (userRole == "enseignants" && subject.TeacherUsername == currentTeacherUsername)
+            return true;
+
+        return false;
+    }
+
+    // ---------- Modal Add ----------
+    private void OpenAddModal()
+    {
+        newSubjectModel = new EditSubjectModel
+        {
+            TeacherUsername = userRole == "enseignants" ? currentTeacherUsername : ""
+        };
+        showAddForm = true;
+    }
+
+    private void CancelAdd()
+    {
+        newSubjectModel = new EditSubjectModel();
+        showAddForm = false;
+    }
+
+    private async Task SubmitAdd() // [ChatGPT] async void → async Task
+    {
+        if (string.IsNullOrWhiteSpace(newSubjectModel.NewName))
+        {
+            await JS.InvokeVoidAsync("alert", "Le nom de la matière est requis.");
+            return;
+        }
+
+        // [ChatGPT] Sauvegarde des valeurs AVANT reset (correction perte de données)
+        
+        var name = newSubjectModel.NewName;
+        var teacher = newSubjectModel.TeacherUsername;
+        var credits = newSubjectModel.Credits;
+        var filiere = newSubjectModel.Filiere;
+        var classe = newSubjectModel.Classe;
+        var semestre = newSubjectModel.Semestre;
+        var schedule = newSubjectModel.Schedule;
+
+        var newSubject = new SubjectItem(
+            
+            name,
+            teacher,
+            credits,
+            classe,
+            filiere,
+            semestre,
+            schedule
+        );
+
+        subjectsList.Add(newSubject);
+
+        showAddForm = false;
+        newSubjectModel = new EditSubjectModel();
+
+        // [ChatGPT] Appel SQL avec valeurs conservées
+        await Auth.subjectadd(name, teacher, classe ,filiere, credits, semestre);
+        await JS.InvokeVoidAsync("alert", "Matière ajoutée avec succès.");
+    }
+
+    // ---------- Modal Edit ----------
+    private Task EditSubject(SubjectItem subject) // [ChatGPT] async void → Task
+    {
+        if (!CanEditSubject(subject))
+            return Task.CompletedTask;
+
+        editSubjectModel = new EditSubjectModel
+        {
+            OldName = subject.Name,
+            TeacherUsername = subject.TeacherUsername,
+            Credits = subject.Credits,
+            Filiere = subject.Filiere,
+            Classe = subject.classe, // <-- Correction ici : Classe (propriété de EditSubjectModel) = classe (champ de SubjectItem)
+            Semestre = subject.Semestre,
+            Schedule = subject.Schedule
+        };
+
+        showEditForm = true;
+        return Task.CompletedTask;
+    }
+
+    private void CancelEdit()
+    {
+        editSubjectModel = new EditSubjectModel();
+        showEditForm = false;
+    }
+
+    private async Task SubmitEdit() // [ChatGPT] async void → async Task
+    {
+        editSubjectModel.NewName =
+            string.IsNullOrWhiteSpace(editSubjectModel.NewName)
+                ? editSubjectModel.OldName
+                : editSubjectModel.NewName;
+
+        // [ChatGPT] Sauvegarde AVANT reset (correction perte de données)
+        
+        var oldName = editSubjectModel.OldName;
+        var newName = editSubjectModel.NewName;
+        var teacher = editSubjectModel.TeacherUsername;
+        var credits = editSubjectModel.Credits;
+        var classe = editSubjectModel.Classe; // <-- Correction ici : Classe (propriété de EditSubjectModel)
+        var filiere = editSubjectModel.Filiere;
+        var semestre = editSubjectModel.Semestre;
+        var schedule = editSubjectModel.Schedule;
+
+        var index = subjectsList.FindIndex(s =>
+            s.Name == oldName && s.TeacherUsername == teacher);
+
+        if (index >= 0)
+        {
+            subjectsList[index] = new SubjectItem(
+              
+                newName,
+                teacher,
+                credits,
+                classe,
+                filiere,
+                semestre,
+                schedule
+            );
+        }
+
+        showEditForm = false;
+        editSubjectModel = new EditSubjectModel();
+
+        // [ChatGPT] Appel SQL avec valeurs conservées
+        await Auth.EditSubject(oldName, newName, teacher, filiere, classe, credits, semestre);
+        await JS.InvokeVoidAsync("alert", "Matière mise à jour avec succès.");
+    }
+
+    // ---------- Delete ----------
+    private async Task DeleteSubject(SubjectItem subject) // [ChatGPT] async void → async Task
+    {
+        if (!CanEditSubject(subject))
+            return;
+
+        bool confirmed = await JS.InvokeAsync<bool>(
+            "confirm",
+            "Êtes-vous sûr de vouloir supprimer cette matière ?"
+        );
+
+        if (confirmed)
+        {
+            subjectsList.Remove(subject);
+            await Auth.subjectdelete(subject.Name, subject.TeacherUsername);
+            await JS.InvokeVoidAsync("alert", "Matière supprimée avec succès.");
+        }
+    }
+
+    /* ---------- Models ---------- */
+
+    record SubjectItem(
+        
+        string Name,
+        string TeacherUsername,
+        int Credits,
+        string classe,
+        string Filiere,
+        int Semestre,
+        string Schedule
+    );
+
+    class EditSubjectModel
+    {
+        public string OldName { get; set; } = "";
+        public string NewName { get; set; } = "";
+        public string TeacherUsername { get; set; } = "";
+        public int Credits { get; set; } = 3;
+        public string Filiere { get; set; } = "ASI";
+        public string Classe { get; set; } = "B1";
+        public int Semestre { get; set; } = 1;
+        public string Schedule { get; set; } = "";
+    }
+}

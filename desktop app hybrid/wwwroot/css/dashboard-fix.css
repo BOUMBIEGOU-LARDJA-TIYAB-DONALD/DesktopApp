@@ -1,0 +1,87 @@
+/* ========================================================
+   FIX: Amélioration de la disposition du Dashboard
+   ======================================================== */
+
+/* Header du panel avec select intégré */
+.dashboard-panel-header {
+    padding: 14px 18px !important;
+    border-bottom: 1px solid #e2e8f0;
+    background: linear-gradient(135deg, #f9fbff, #ffffff);
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 12px !important;
+}
+
+    .dashboard-panel-header span {
+        flex: 1;
+        font-size: 14px;
+        font-weight: 600;
+        color: #1f2937;
+    }
+
+/* Select pour le type de graphique */
+.chart-type-selector {
+    padding: 6px 10px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 12px;
+    background: #f8fafc;
+    color: #1f2937;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    min-width: 120px;
+    max-width: 140px;
+}
+
+    .chart-type-selector:focus {
+        outline: none;
+        border-color: #2563eb;
+        background: white;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    .chart-type-selector:hover {
+        border-color: #94a3b8;
+        background: white;
+    }
+
+/* Amélioration de la grille des graphiques */
+.dashboard-charts-row {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 20px !important;
+    margin-bottom: 20px !important;
+}
+
+/* Canvas des graphiques */
+.dashboard-chart-placeholder canvas {
+    max-height: 300px;
+    width: 100% !important;
+    height: auto !important;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .dashboard-charts-row {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+@media (max-width: 640px) {
+    .dashboard-panel-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+
+    .chart-type-selector {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .dashboard-panel-header span {
+        font-size: 13px;
+    }
+}

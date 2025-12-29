@@ -1,0 +1,899 @@
+﻿@using System.Data
+@inject AuthService Auth
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<div class="app-shell" @onclick="calculateallaverage">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="logo-inline">
+            <img class="logo-icon" src="https://i.ibb.co/yF9Ct6Vh/e45cad7b-df02-42d6-a6ee-1cbb9de115ab.jpg">
+            <div class="logo-text">GradeMaster</div>
+        </div>
+        <Navbar />
+        <div class="sidebar-footer">
+            <a href="/login" class="nav-item">🚪 Déconnexion</a>
+        </div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+        <header class="topbar">
+            <div class="topbar-title">Gestion des Notes</div>
+            <div class="topbar-right">
+                <span class="topbar-role">@userRole</span>
+                <div class="topbar-user">
+                    <span class="avatar"></span>
+                    <a href="/login" class="link-button">Déconnexion</a>
+                </div>
+            </div>
+        </header>
+
+        <main class="content grades-page">
+            <div class="content-inner">
+
+                <!-- Header -->
+                <div class="grades-header-row">
+                    <h1>Gestion des Notes</h1>
+                </div>
+
+                <!-- Contexte de notation -->
+                <div class="grades-context-panel">
+                    <div class="panel-header">
+                        <h2>Sélectionner le Contexte de Notation</h2>
+                    </div>
+                    <div class="context-grid">
+                        <div class="context-field">
+                            <label>Semestre</label>
+                            <select @bind="selectedSemester">
+                                @foreach (var sem in semesters)
+                                {
+                                    <option value="@sem">@sem</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="context-field">
+                            <label>Classe</label>
+                            <select @bind="selectedClass" >
+                                @foreach (var cls in availableClasses)
+                                {
+                                    <option value="@cls">@cls</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="context-field">
+                            <label>Matière</label>
+                            <select @bind="selectedSubjectId" >
+                                @foreach (var subj in availableSubjects)
+                                {
+                                    <option value="@subj.Id">@subj.Name (@subj.Credits crédits)</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tableau des notes -->
+                @if (currentSubject is not null && studentGradesList.Any())
+                {
+                    <div class="grades-data-panel">
+                        <div class="panel-header">
+                            <h2>Notes de @currentSubject.Name</h2>
+                        </div>
+                        <div class="panel-body">
+                            <table class="grades-table">
+                                <thead>
+                                    <tr>
+                                        <th>Matricule de l'Étudiant</th>
+                                        <th>Nom de l'Étudiant</th>
+                                        <th>Note de Devoir (50%)</th>
+                                        <th>Note d'Examen (50%)</th>
+                                        <th>Moyenne</th>
+                                        <th>Coefficient</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var row in studentGradesList)
+                                    {
+                                        <tr>
+                                            <td class="student-name">@row.matricule</td>
+                                            <td class="student-name">@row.StudentName</td>
+                                            <td>
+                                                <input type="number" 
+                                                       min="0" max="20" 
+                                                       @bind="row.AssignmentGrade" 
+                                                       @oninput="() => CalculateAverage(row)"
+                                                       placeholder="0-20"
+                                                       class="grade-input" />
+                                            </td>
+                                            <td>
+                                                <input type="number" 
+                                                       min="0" max="20" 
+                                                       @bind="row.ExamGrade" 
+                                                       @oninput="() => CalculateAverage(row)"
+                                                       placeholder="0-20"
+                                                       class="grade-input" />
+                                            </td>
+                                            <td class="average-cell">
+                                                @(row.Average >= 0 ? row.Average.ToString("F2") : "-")
+                                            </td>
+                                            <td class="coefficient-cell">
+                                                @currentSubject.Credits
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+
+                            <div class="grades-actions">
+                                <button class="primary-button" @onclick="SaveAllGrades" type="button">
+                                    💾 Enregistrer toutes les notes
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else if (currentSubject is not null && !studentGradesList.Any())
+                {
+                    <div class="empty-state">
+                        <p>⚠️ Aucun étudiant trouvé pour la matière <strong>@currentSubject.Name</strong> dans la classe <strong>@selectedClass</strong>.</p>
+                        <p style="color: #6b7280; font-size: 14px; margin-top: 8px;">
+                            💡 Vérifiez que cette matière est bien assignée à cette classe dans la configuration.
+                        </p>
+                    </div>
+                }
+                else if (currentSubject is null && !string.IsNullOrEmpty(selectedSubjectId))
+                {
+                    <div class="empty-state">
+                        <p>Aucune matière sélectionnée ou données introuvables.</p>
+                    </div>
+                }
+
+                <footer class="footer-main">
+                    © 2025 GradeMaster. Tous droits réservés.
+                </footer>
+            </div>
+        </main>
+    </div>
+</div>
+
+@code {
+    private string userRole = "etudiants";
+    private string currentTeacherUsername = "";
+
+    //private string selectedSemester = "1";
+    //private string selectedClass = "";           // display "B1 ASI" format
+    //private string selectedSubjectId = "";
+
+    private SubjectData? currentSubject;
+    private List<StudentGradeRow> studentGradesList = new();
+
+    private readonly string[] semesters = new[] { "1", "2" };
+    //old code 
+    private string _selectedSemester = "1";
+    private string selectedSemester
+    {
+        get => _selectedSemester;
+        set
+        {
+            if (_selectedSemester != value)
+            {
+                _selectedSemester = value;
+                // ✅ Plus besoin de recharger depuis la BD, juste mettre à jour la sélection locale
+                UpdateAvailableSubjectsSelection();
+                _ = LoadStudentsForSubject();
+                StateHasChanged();  // ✅ Forcer le re-rendu
+            }
+        }
+    }
+
+    private string _selectedClass = "";
+    private string selectedClass
+    {
+        get => _selectedClass;
+        set
+        {
+            if (_selectedClass != value)
+            {
+                _selectedClass = value;
+
+                // ✅ CORRECTION: Vérifier si la matière actuelle est valide pour cette classe
+                var validSubjects = availableSubjects;
+                if (!validSubjects.Any(s => s.Id == selectedSubjectId))
+                {
+                    // La matière actuelle n'est pas valide pour cette classe
+                    // Sélectionner la première matière disponible
+                    if (validSubjects.Any())
+                    {
+                        selectedSubjectId = validSubjects.First().Id;
+                        JS.InvokeVoidAsync("console.log", $"🔄 Matière auto-sélectionnée: {selectedSubjectId} pour classe {value}");
+                    }
+                    else
+                    {
+                        selectedSubjectId = "";
+                        JS.InvokeVoidAsync("console.warn", $"⚠️ Aucune matière disponible pour classe {value}");
+                    }
+                }
+
+                _ = LoadStudentsForSubject();
+                StateHasChanged();  // ✅ AJOUT: Forcer le re-rendu
+            }
+        }
+    }
+
+    private string _selectedSubjectId = "";
+    private string selectedSubjectId
+    {
+        get => _selectedSubjectId;
+        set
+        {
+            if (_selectedSubjectId != value)
+            {
+                _selectedSubjectId = value;
+                _ = LoadStudentsForSubject();
+                StateHasChanged();  // ✅ AJOUT: Forcer le re-rendu
+            }
+        }
+    }
+
+    //end old code
+    // we'll replace the list object when updating so Blazor re-renders reliably
+    private List<string> availableClassesData = new();
+    private IEnumerable<string> availableClasses => availableClassesData;
+
+    private List<SubjectData> allSubjects = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        userRole = await SecureStorage.GetAsync("userRole") ?? "etudiants";
+        currentTeacherUsername = await SecureStorage.GetAsync("username") ?? "";
+
+        // ✅ DEBUG: Afficher le rôle et username chargés
+        await JS.InvokeVoidAsync("console.log", $"🔐 Rôle utilisateur chargé: '{userRole}'");
+        await JS.InvokeVoidAsync("console.log", $"👤 Username chargé: '{currentTeacherUsername}'");
+
+        if (userRole == "etudiants")
+        {
+            Nav.NavigateTo("/403", true);
+            return;
+        }
+
+        await LoadSubjectsFromDatabase();
+        await LoadClassesFromDatabase(); // populate availableClassesData
+        await LoadAvailableSubjects();   // set selectedSubjectId and load students
+    }
+
+    private async Task LoadSubjectsFromDatabase()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("console.log", $"📖 LoadSubjectsFromDatabase appelée avec userRole='{userRole}'");
+
+            DataTable results;
+
+            if (userRole.Equals("admin", StringComparison.OrdinalIgnoreCase))  // ✅ Comparaison insensible à la casse
+            {
+                await JS.InvokeVoidAsync("console.log", "✅ Mode ADMIN détecté - Chargement de TOUTES les matières");
+                // ✅ ADMIN : Charger TOUTES les matières
+                results = await Auth.Selector(
+                    "m.id_mat, m.nom as mnom, m.credits, m.semestre, m.id_classe, c.libelle, c.filiere",
+                    "matieres m " +
+                    "INNER JOIN classes c ON m.id_classe = c.id_classe",
+                    "1=1"  // ✅ Pas de filtre pour admin
+                );
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("console.log", $"✅ Mode ENSEIGNANT détecté - Chargement des matières pour '{currentTeacherUsername}'");
+                // ✅ ENSEIGNANT : Charger seulement ses matières
+                results = await Auth.Selector(
+                    "m.id_mat, m.nom as mnom, m.credits, m.semestre, m.id_classe, c.libelle, c.filiere",
+                    "matieres m " +
+                    "INNER JOIN classes c ON m.id_classe = c.id_classe " +
+                    "INNER JOIN enseignants e ON m.id_ens = e.id_ens " +
+                    "INNER JOIN utilisateurs u ON e.id_user = u.id_user",
+                    $"(u.username='{currentTeacherUsername}' OR u.email='{currentTeacherUsername}')"
+                );
+            }
+
+            await JS.InvokeVoidAsync("console.log", $"📊 Requête retournée: {results.Rows.Count} lignes");
+
+            var tmp = new List<SubjectData>();
+            foreach (DataRow item in results.Rows)
+            {
+                var id = item["id_mat"]?.ToString() ?? "";
+                var name = item["mnom"]?.ToString() ?? "";
+                var credits = int.TryParse(item["credits"]?.ToString(), out var c) ? c : 0;
+                var semestre = item["semestre"]?.ToString() ?? "1";
+                var idClasse = int.TryParse(item["id_classe"]?.ToString(), out var ic) ? ic : 0;
+                var libelle = item["libelle"]?.ToString() ?? "";
+                var filiere = item["filiere"]?.ToString() ?? "";
+
+                // ✅ Pour admin, on met un placeholder comme TeacherUsername
+                var teacherUsername = userRole.Equals("admin", StringComparison.OrdinalIgnoreCase) ? "ADMIN" : currentTeacherUsername;
+
+                tmp.Add(new SubjectData(id, name, teacherUsername, credits, semestre, idClasse, libelle, filiere));
+            }
+
+            allSubjects = tmp;
+
+            await JS.InvokeVoidAsync("console.log", $"📚 {allSubjects.Count} matières chargées au total pour {userRole}");
+            if (allSubjects.Count > 0 && allSubjects.Count <= 10)
+            {
+                foreach (var subject in allSubjects)
+                {
+                    await JS.InvokeVoidAsync("console.log", $"  - {subject.Name} (S{subject.Semestre}) - Classe: {subject.Classe} {subject.Filiere}");
+                }
+            }
+            else if (allSubjects.Count > 10)
+            {
+                await JS.InvokeVoidAsync("console.log", $"  (Affichage des 5 premières seulement...)");
+                foreach (var subject in allSubjects.Take(5))
+                {
+                    await JS.InvokeVoidAsync("console.log", $"  - {subject.Name} (S{subject.Semestre}) - Classe: {subject.Classe} {subject.Filiere}");
+                }
+            }
+
+            UpdateAvailableSubjectsSelection();
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("console.error", $"❌ Erreur lors du chargement des matières: {ex.Message}");
+            await JS.InvokeVoidAsync("console.error", $"❌ Stack: {ex.StackTrace}");
+        }
+    }
+
+    // ✅ Nouvelle méthode pour mettre à jour la sélection après filtrage local
+    private void UpdateAvailableSubjectsSelection()
+    {
+        var filtered = availableSubjects;
+
+        // ✅ Debug : Afficher le filtrage par semestre
+        JS.InvokeVoidAsync("console.log", $"🔍 Semestre sélectionné: {selectedSemester}");
+        JS.InvokeVoidAsync("console.log", $"📋 {filtered.Count} matières disponibles pour ce semestre:");
+        foreach (var subject in filtered)
+        {
+            JS.InvokeVoidAsync("console.log", $"  - {subject.Name} (ID: {subject.Id})");
+        }
+
+        if (filtered.Any())
+        {
+            // Si la matière actuelle n'est plus dans le semestre sélectionné, prendre la première disponible
+            if (!filtered.Any(s => s.Id == selectedSubjectId))
+            {
+                selectedSubjectId = filtered.First().Id;
+                JS.InvokeVoidAsync("console.log", $"✅ Matière sélectionnée: {selectedSubjectId}");
+            }
+        }
+        else
+        {
+            selectedSubjectId = "";
+            studentGradesList = new List<StudentGradeRow>();
+            currentSubject = null;
+            JS.InvokeVoidAsync("console.warn", "⚠️ Aucune matière disponible pour ce semestre");
+        }
+    }
+
+    private List<SubjectData> availableSubjects
+    {
+        get
+        {
+            var filtered = allSubjects.Where(s => s.Semestre == selectedSemester);
+
+            // ✅ Filtrer par classe si une classe est sélectionnée
+            if (!string.IsNullOrWhiteSpace(selectedClass))
+            {
+                var parts = selectedClass.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                string wantedClasse = parts.Length > 0 ? parts[0] : "";
+                string wantedFiliere = parts.Length > 1 ? parts[^1] : "";
+
+                filtered = filtered.Where(s => 
+                    s.Classe.Equals(wantedClasse, StringComparison.OrdinalIgnoreCase) &&
+                    (string.IsNullOrWhiteSpace(wantedFiliere) || s.Filiere.Equals(wantedFiliere, StringComparison.OrdinalIgnoreCase))
+                );
+            }
+
+            if (userRole.Equals("admin", StringComparison.OrdinalIgnoreCase))  // ✅ Insensible à la casse
+                return filtered.ToList();
+            else
+                return filtered.Where(s => s.TeacherUsername == currentTeacherUsername).ToList();
+        }
+    }
+
+    private async Task LoadAvailableSubjects()
+    {
+        if (availableSubjects.Any())
+        {
+            selectedSubjectId = availableSubjects.First().Id;
+            // set default selectedClass if none
+            if (string.IsNullOrEmpty(selectedClass) && availableClasses.Any())
+                selectedClass = availableClasses.First();
+            await LoadStudentsForSubject();
+        }
+        else
+        {
+            studentGradesList = new List<StudentGradeRow>();
+            currentSubject = null;
+        }
+    }
+
+    // called by @onchange for semester / class / subject
+    private async Task OnContextChanged(ChangeEventArgs e)
+    {
+        // when context changes, reload students for the new context
+        await LoadStudentsForSubject();
+        // ensure component refresh
+        StateHasChanged();
+    }
+
+    private async Task LoadStudentsForSubject()
+    {
+        await JS.InvokeVoidAsync("console.log", "=== 🔄 DÉBUT LoadStudentsForSubject ===");
+        await JS.InvokeVoidAsync("console.log", $"📌 Semestre: {selectedSemester}");
+        await JS.InvokeVoidAsync("console.log", $"📌 Classe: '{selectedClass}'");
+        await JS.InvokeVoidAsync("console.log", $"📌 Matière ID: '{selectedSubjectId}'");
+
+        // reset
+        studentGradesList = new List<StudentGradeRow>();
+        currentSubject = null;
+
+        if (string.IsNullOrWhiteSpace(selectedSubjectId))
+        {
+            await JS.InvokeVoidAsync("console.warn", "⚠️ Aucun ID de matière sélectionné");
+            StateHasChanged();
+            return;
+        }
+
+        currentSubject = availableSubjects.FirstOrDefault(s => s.Id == selectedSubjectId);
+        if (currentSubject is null)
+        {
+            await JS.InvokeVoidAsync("console.warn", $"⚠️ Matière {selectedSubjectId} introuvable dans availableSubjects");
+            StateHasChanged();
+            return;
+        }
+
+        await JS.InvokeVoidAsync("console.log", $"📖 Chargement des étudiants pour: {currentSubject.Name}");
+
+        // parse selectedClass into classe + filiere (expecting "B1 ASI" format)
+        string wantedClasse = "";
+        string wantedFiliere = "";
+
+        if (string.IsNullOrWhiteSpace(selectedClass))
+        {
+            await JS.InvokeVoidAsync("console.error", "❌ CLASSE VIDE OU NULL!");
+            StateHasChanged();
+            return;
+        }
+
+        var parts = selectedClass.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 1)
+        {
+            wantedClasse = parts[0];
+        }
+        else if (parts.Length >= 2)
+        {
+            wantedClasse = parts[0];
+            wantedFiliere = parts[^1]; // last token as filiere
+        }
+
+        await JS.InvokeVoidAsync("console.log", $"🔍 Parsing classe: '{selectedClass}' → Classe='{wantedClasse}', Filière='{wantedFiliere}'");
+
+        if (string.IsNullOrWhiteSpace(wantedClasse))
+        {
+            await JS.InvokeVoidAsync("console.error", "❌ Impossible de parser la classe!");
+            StateHasChanged();
+            return;
+        }
+
+        try
+        {
+            var mailoru = await SecureStorage.GetAsync("username");
+
+            // Charger directement les étudiants de la classe sélectionnée
+            var whereClause = $"c.libelle = '{wantedClasse}'";
+            if (!string.IsNullOrWhiteSpace(wantedFiliere))
+            {
+                whereClause += $" AND c.filiere = '{wantedFiliere}'";
+            }
+            whereClause += $" AND mat.id_mat = {selectedSubjectId}";
+
+            await JS.InvokeVoidAsync("console.log", $"🔎 Requête SQL WHERE: {whereClause}");
+
+            var studentsResult = await Auth.Selector(
+                "et.id_etud, et.matricule, et.nom as nom_etud, et.prenom, c.libelle as classe, c.filiere",
+                "etudiants et " +
+                "JOIN classes c ON et.id_classe = c.id_classe " +
+                "JOIN matieres mat ON mat.id_classe = c.id_classe",
+                whereClause
+            );
+
+            await JS.InvokeVoidAsync("console.log", $"👥 {studentsResult.Rows.Count} étudiants trouvés pour cette classe");
+
+            var gradesDict = new Dictionary<int, StudentGradeRow>();
+
+            // D'abord, créer toutes les entrées pour les étudiants
+            foreach (DataRow studentRow in studentsResult.Rows)
+            {
+                var sidStr = studentRow["id_etud"]?.ToString() ?? "";
+                if (!int.TryParse(sidStr, out var sid)) continue;
+
+                var matricule = studentRow["matricule"]?.ToString() ?? "";
+                var nom = studentRow["nom_etud"]?.ToString() ?? "";
+                var prenom = studentRow["prenom"]?.ToString() ?? "";
+                var classe = studentRow["classe"]?.ToString() ?? "";
+                var filiere = studentRow["filiere"]?.ToString() ?? "";
+
+                gradesDict[sid] = new StudentGradeRow
+                {
+                    matricule = matricule,
+                    StudentId = sid,
+                    subjectId = int.Parse(selectedSubjectId),
+                    StudentName = $"{nom} {prenom}".Trim(),
+                    StudentClass = $"{classe} {filiere}".Trim(),
+                    AssignmentGrade = 0,
+                    ExamGrade = 0,
+                    Average = 0
+                };
+
+                await JS.InvokeVoidAsync("console.log", $"  ✅ Étudiant ajouté: {matricule} - {nom} {prenom}");
+            }
+
+            // Ensuite, charger les notes existantes
+            if (gradesDict.Any())
+            {
+                var studentIds = string.Join(",", gradesDict.Keys);
+                await JS.InvokeVoidAsync("console.log", $"📝 Chargement des notes pour les IDs: {studentIds}");
+
+                var notesResult = await Auth.Selector(
+                    "n.id_etud, n.valeur, n.type_note",
+                    "notes n",
+                    $"n.id_mat = {selectedSubjectId} AND n.id_etud IN ({studentIds})"
+                );
+
+                await JS.InvokeVoidAsync("console.log", $"📝 {notesResult.Rows.Count} notes trouvées");
+
+                foreach (DataRow noteRow in notesResult.Rows)
+                {
+                    var studentIdStr = noteRow["id_etud"]?.ToString() ?? "";
+                    if (!int.TryParse(studentIdStr, out var studentId)) continue;
+
+                    if (gradesDict.TryGetValue(studentId, out var gradeRow))
+                    {
+                        var type = noteRow["type_note"]?.ToString();
+                        var value = 0m;
+                        if (decimal.TryParse(noteRow["valeur"]?.ToString(), out var parsedValue))
+                            value = parsedValue;
+
+                        if (string.Equals(type, "CC", StringComparison.OrdinalIgnoreCase))
+                        {
+                            gradeRow.AssignmentGrade = value;
+                            await JS.InvokeVoidAsync("console.log", $"  📊 CC pour étudiant {studentId}: {value}");
+                        }
+                        else if (string.Equals(type, "Exam", StringComparison.OrdinalIgnoreCase))
+                        {
+                            gradeRow.ExamGrade = value;
+                            await JS.InvokeVoidAsync("console.log", $"  📊 Exam pour étudiant {studentId}: {value}");
+                        }
+
+                        CalculateAverage(gradeRow);
+                    }
+                }
+            }
+
+            studentGradesList = gradesDict.Values.OrderBy(s => s.StudentName).ToList();
+
+            await JS.InvokeVoidAsync("console.log", $"✅ Liste finale: {studentGradesList.Count} étudiants");
+            await JS.InvokeVoidAsync("console.log", "=== ✅ FIN LoadStudentsForSubject ===");
+
+            // Ensure Blazor re-renders
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("console.error", $"❌ Erreur lors du chargement des étudiants: {ex.Message}");
+            await JS.InvokeVoidAsync("console.error", $"❌ Stack: {ex.StackTrace}");
+            StateHasChanged();
+        }
+    }
+
+    private void CalculateAverage(StudentGradeRow row)
+    {
+        // Moyenne = (Note Devoir * 50% + Note Examen * 50%) / 100 -> ici équivalent (deux poids égaux)
+        // On accepte 0 comme valeur valide.
+        row.Average = (row.AssignmentGrade + row.ExamGrade) / 2.0m;
+        // Pas nécessaire d'appeler StateHasChanged() ici car @bind provoque déjà un rendu, mais on peut si nécessaire.
+        StateHasChanged();
+    }
+    private void calculateallaverage()
+    {
+        foreach(var row in studentGradesList)
+        {
+            CalculateAverage(row);
+        }
+    }
+    private async Task SaveAllGrades()
+    {
+        // Validation : toutes les lignes doivent avoir une note de devoir ET une note d'examen (0-20)
+        var invalidRows = studentGradesList
+            .Where(r => r.AssignmentGrade < 0 || r.AssignmentGrade > 20 || r.ExamGrade < 0 || r.ExamGrade > 20)
+            .ToList();
+
+        var emptyRows = studentGradesList
+            .Where(r => r.AssignmentGrade == 0 && r.ExamGrade == 0)
+            .ToList();
+
+        if (emptyRows.Any())
+        {
+            await JS.InvokeVoidAsync("alert",
+                $"⚠️ Veuillez remplir les notes pour tous les étudiants. {emptyRows.Count} étudiant(s) manquent des notes.");
+            return;
+        }
+
+        if (invalidRows.Any())
+        {
+            await JS.InvokeVoidAsync("alert",
+                "❌ Les notes doivent être entre 0 et 20.");
+            return;
+        }
+        bool error = false;
+        foreach (var row in studentGradesList)
+        {
+            var selectmat = await Auth.Selector("nom", "matieres", "id_mat=" + row.subjectId);
+            string nommat = "";
+            if (selectmat.Rows.Count > 0)
+            {
+                nommat = selectmat.Rows[0]["nom"]?.ToString() ?? "";
+            }
+            bool t1 = await Auth.Editgrades(row.subjectId, row.StudentId, (double)row.AssignmentGrade, "CC");
+            bool t2 = await Auth.Editgrades(row.subjectId, row.StudentId, (double)row.ExamGrade, "Exam");
+            if (!t1 || !t2)
+            {
+                error = true;
+                await JS.InvokeVoidAsync("alert",
+                $"❌ Erreur lors de l'enregistrement des notes pour l'étudiant {row.StudentName}.");
+                return;
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("console.log", $"Notes enregistrées pour l'étudiant {row.StudentName}, CC={(double)row.AssignmentGrade} exam={(double)row.ExamGrade}");
+            }
+            var template = $$"""
+            <!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Nouvelle note enregistrée</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #f3f4f6;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #111827;
+        }
+        .wrapper {
+            width: 100%;
+            padding: 24px 0;
+        }
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+            overflow: hidden;
+        }
+        .header {
+            padding: 18px 24px;
+            background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+            color: #ffffff;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 700;
+        }
+        .content {
+            padding: 22px 24px 20px;
+        }
+        .content p {
+            font-size: 14px;
+            line-height: 1.6;
+            margin: 0 0 12px;
+            color: #374151;
+        }
+        .info-block {
+            margin: 16px 0;
+            padding: 12px 14px;
+            background: #f9fafb;
+            border-radius: 8px;
+            border-left: 3px solid #2563eb;
+        }
+        .info-line {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            margin-bottom: 6px;
+        }
+        .info-line:last-child {
+            margin-bottom: 0;
+        }
+        .info-label {
+            color: #6b7280;
+            font-weight: 500;
+        }
+        .info-value {
+            font-weight: 600;
+            color: #111827;
+        }
+        .cta-text {
+            font-size: 13px;
+            color: #6b7280;
+            text-align: center;
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer {
+            padding: 14px 24px;
+            background: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+            font-size: 11px;
+            color: #9ca3af;
+            text-align: center;
+        }
+        @media (max-width: 600px) {
+            .container {
+                border-radius: 0;
+            }
+            .content {
+                padding: 18px 16px 14px;
+            }
+            .header {
+                padding: 14px 16px;
+            }
+            .footer {
+                padding: 12px 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <div class="container">
+        <div class="header">
+            <h1>📝 Nouvelle note enregistrée</h1>
+        </div>
+
+        <div class="content">
+            <p>Bonjour <strong>{{row.StudentName}}</strong>,</p>
+
+            <p>Une nouvelle note a été enregistrée dans <strong>{{row.StudentClass}}</strong>.</p>
+
+            <div class="info-block">
+                <div class="info-line">
+                    <span class="info-label">Étudiant</span>
+                    <span class="info-value">{{row.StudentName}}</span>
+                </div>
+                <div class="info-line">
+                    <span class="info-label">Classe</span>
+                    <span class="info-value">{{row.StudentClass}}</span>
+                </div>
+                <div class="info-line">
+                    <span class="info-label">Matière</span>
+                    <span class="info-value">{{nommat}}</span>
+                </div>
+            </div>
+
+            <p>Connectez-vous à votre espace personnel GradeMaster pour consulter votre nouvelle note et votre bulletin.</p>
+
+            <div class="cta-text">
+                Pour plus de détails, rendez-vous sur votre tableau de bord.
+            </div>
+        </div>
+
+        <div class="footer">
+            © 2025 GradeMaster. Tous droits réservés.
+        </div>
+    </div>
+</div>
+</body>
+</html>
+
+""";
+            var selectemail = await Auth.Selector("email", "utilisateurs u join etudiants e on e.id_user=u.id_user", "e.id_etud=" + row.StudentId);
+            string email = "";
+            if (selectemail.Rows.Count > 0)
+            {
+                email = selectemail.Rows[0]["email"]?.ToString() ?? "";
+            }
+            await Auth.SendEmailAsync(email,"Nouvelle Note Enregistrée",template);
+        }
+        // TODO: Appel API pour enregistrer les notes
+        // await Auth.SaveGrades(selectedSubjectId, selectedSemester, selectedClass, studentGradesList);
+        if (error)
+        {
+            await JS.InvokeVoidAsync("alert", "❌ Certaines notes n'ont pas pu être enregistrées en raison d'erreurs.");
+
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("alert", "✅ Toutes les notes ont été enregistrées avec succès.");
+        }
+    }
+
+    /* ---------- Models ---------- */
+
+    record SubjectData(string Id, string Name, string TeacherUsername, int Credits, string Semestre, int IdClasse, string Classe, string Filiere);  // ✅ Ajout classe info
+
+    class StudentGradeRow
+    {
+        public string matricule { get; set; } = "";
+        public int StudentId { get; set; } 
+        public int subjectId { get; set; }
+        public string StudentName { get; set; } = "";
+        public string StudentClass { get; set; } = "";
+        public decimal AssignmentGrade { get; set; } = 0;
+        public decimal ExamGrade { get; set; } = 0;
+        public decimal Average { get; set; } = 0;
+    }
+
+    // Ajout de la méthode manquante pour corriger CS0103
+    private async Task LoadClassesFromDatabase()
+    {
+        try
+        {
+            DataTable result;
+            
+            if (userRole.Equals("admin", StringComparison.OrdinalIgnoreCase))  // ✅ Insensible à la casse
+            {
+                // ✅ ADMIN : Voir TOUTES les classes
+                result = await Auth.Selector(
+                    "CONCAT(libelle, ' ', filiere) as className",
+                    "classes",
+                    "1=1"
+                );
+            }
+            else
+            {
+                // ✅ ENSEIGNANT : Voir seulement les classes où il enseigne
+                result = await Auth.Selector(
+                    "DISTINCT CONCAT(c.libelle, ' ', c.filiere) as className",
+                    "classes c " +
+                    "INNER JOIN matieres m ON m.id_classe = c.id_classe " +
+                    "INNER JOIN enseignants e ON m.id_ens = e.id_ens " +
+                    "INNER JOIN utilisateurs u ON e.id_user = u.id_user",
+                    $"u.username = '{currentTeacherUsername}' OR u.email = '{currentTeacherUsername}'"
+                );
+            }
+
+            var classes = new List<string>();
+            foreach (DataRow row in result.Rows)
+            {
+                var className = row["className"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(className))
+                {
+                    classes.Add(className);
+                }
+            }
+            
+            availableClassesData = classes.Distinct().OrderBy(c => c).ToList();
+            
+            await JS.InvokeVoidAsync("console.log", $"🏫 {availableClassesData.Count} classes chargées pour {userRole}");
+            foreach (var cls in availableClassesData)
+            {
+                await JS.InvokeVoidAsync("console.log", $"  - {cls}");
+            }
+            
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("console.error", $"Erreur lors du chargement des classes: {ex.Message}");
+        }
+    }
+}

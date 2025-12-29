@@ -10,76 +10,93 @@
         <div class="logo-text">GradeMaster</div>
     </div>
 
-    <h1>Welcome to GradeMaster</h1>
+    <h1>Bienvenue sur GradeMaster</h1>
     <p class="subtitle">
-        Sign in to manage your student grades and academic data.
+        Connectez-vous pour gérer les notes de vos étudiants et les données académiques.
     </p>
 
     <EditForm Model="@model" OnValidSubmit="Submit">
         <DataAnnotationsValidator />
 
         <div class="form-group">
-            <label>Email or Username</label>
+            <label>Email ou Nom d'utilisateur</label>
             <InputText @bind-Value="model.EmailOrUsername"
-                       placeholder="Enter your email or username" />
+                       placeholder="Entrez votre email ou nom d'utilisateur" />
         </div>
 
         <div class="form-group password-field">
-            <label>Password</label>
+            <label>Mot de passe</label>
             <InputText type="password"
                        @bind-Value="model.Password"
-                       placeholder="Enter your password" />
+                       placeholder="Entrez votre mot de passe" />
             <span class="eye"></span>
         </div>
 
         <div class="form-group">
-            <label>Role</label>
+            <label>Rôle</label>
             <InputSelect @bind-Value="model.Role">
-                <option>Student</option>
-                <option>Teacher</option>
-                <option>Administrator</option>
+                <option>etudiants</option>
+                <option>enseignants</option>
+                
             </InputSelect>
         </div>
 
         @if (!string.IsNullOrEmpty(error))
         {
-            <p class="error" stryle="color:red;font-weight:bolder;">@error</p>
+            <p style="color:red;font-weight:bold">@error</p>
         }
 
         <div class="footer">
-            <a href="/forgot-password">Forgot password?</a>
+            <a href="/forgot-password">Mot de passe oublié ?</a>
         </div>
 
-        <button type="submit">Sign In</button>
+        <button type="submit">Se connecter</button>
     </EditForm>
 
     <div class="footer">
-        Don’t have an account? <a href="/signup">Sign Up</a>
+        Vous n'avez pas de compte ? <a href="/signup">S'inscrire</a>
     </div>
 </div>
 
 @code {
+
     private LoginModel model = new();
     private string? error;
-
+    protected override async Task OnInitializedAsync()
+    {
+        string mv = await SecureStorage.GetAsync("mustverify") ?? "false";
+        if (mv == "true")
+        {
+            Nav.NavigateTo("/code");
+        }
+    }
     private async Task Submit()
     {
         error = null;
 
         var success = await Auth.LoginAsync(
             model.EmailOrUsername,
-            model.Password
+            model.Password,
+            model.Role
         );
 
         if (success)
         {
-            await SecureStorage.SetAsync("userRole", model.Role);
+            if (model.EmailOrUsername == "student-grade")
+            {
+                await SecureStorage.SetAsync("userRole", "Admin");
+            }
+            else
+            {
+                await SecureStorage.SetAsync("userRole", model.Role);
+            }
+           
             await SecureStorage.SetAsync("username", model.EmailOrUsername);
             Nav.NavigateTo("/profile");
         }
         else
         {
-            error = "Invalid username or password";
+            error = "Nom d'utilisateur, mot de passe ou sélection de rôle invalide";
         }
     }
 
@@ -91,6 +108,6 @@
         [Required]
         public string Password { get; set; } = "";
 
-        public string Role { get; set; } = "Student";
+        public string Role { get; set; } = "etudiants";
     }
 }

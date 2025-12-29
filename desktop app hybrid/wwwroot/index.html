@@ -9,6 +9,8 @@
     <link rel="stylesheet" href="app.css" />
     <link href="css/auth.css" rel="stylesheet" />
     <link href="css/all.css" rel="stylesheet" />
+    <link href="css/students-fix.css" rel="stylesheet" />
+    <link href="css/dashboard-fix.css" rel="stylesheet" />
     <link rel="stylesheet" href="desktop app hybrid.styles.css" />
     <link rel="icon" href="data:,">
 </head>
@@ -24,9 +26,160 @@
         <a href="." class="reload">Reload</a>
         <span class="dismiss">🗙</span>
     </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script src="_framework/blazor.webview.js" autostart="false"></script>
     <script src="./storage.js"></script>
+    <script>
+        window.logToConsole = function (message) {
+            console.log(message);
+        };
+        window.openEditForm = () => {
+            document.body.style.overflow = "hidden";
+        };
+
+        window.closeEditForm = () => {
+            document.body.style.overflow = "auto";
+        };
+
+        window.createChart = (canvasId, labels, values, type, max) => {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) {
+                console.error(`❌ Canvas with id '${canvasId}' not found`);
+                return;
+            }
+
+            if (!labels || labels.length === 0) {
+                console.warn(`⚠️ No labels provided for ${canvasId}. Labels:`, labels);
+                return;
+            }
+
+            if (!values || values.length === 0) {
+                console.warn(`⚠️ No values provided for ${canvasId}. Values:`, values);
+                return;
+            }
+
+            console.log(`✅ Creating chart for ${canvasId}:`, {
+                labels: labels,
+                values: values,
+                type: type,
+                max: max
+            });
+
+            // Destroy existing chart if it exists
+            const existingChart = Chart.getChart(ctx);
+            if (existingChart) {
+                console.log(`🔄 Destroying existing chart for ${canvasId}`);
+                existingChart.destroy();
+            }
+
+            const chartContext = ctx.getContext('2d');
+            new Chart(chartContext, {
+                type: type, // 'bar', 'line', 'pie', etc.
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: type === 'bar' ? 'Valeur' : 'Moyenne par classe',
+                        data: values,
+                        backgroundColor: [
+                            'rgba(54, 162, 235, 0.6)',
+                            'rgba(75, 192, 192, 0.6)',
+                            'rgba(255, 206, 86, 0.6)',
+                            'rgba(255, 99, 132, 0.6)',
+                            'rgba(153, 102, 255, 0.6)',
+                            'rgba(255, 159, 64, 0.6)',
+                            'rgba(199, 199, 199, 0.6)',
+                            'rgba(83, 102, 255, 0.6)',
+                            'rgba(255, 99, 64, 0.6)',
+                            'rgba(100, 192, 100, 0.6)'
+                        ],
+                        borderColor: [
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(255, 206, 86, 1)',
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(153, 102, 255, 1)',
+                            'rgba(255, 159, 64, 1)',
+                            'rgba(199, 199, 199, 1)',
+                            'rgba(83, 102, 255, 1)',
+                            'rgba(255, 99, 64, 1)',
+                            'rgba(100, 192, 100, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        title: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    return context.dataset.label + ': ' + context.parsed.y.toFixed(2);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: max,
+                            ticks: {
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                font: {
+                                    size: 11
+                                },
+                                maxRotation: 45,
+                                minRotation: 0
+                            }
+                        }
+                    }
+                }
+            });
+
+            console.log(`✅ Chart created successfully for ${canvasId}`);
+        };
+        window.exportDivToPdf = async (divId, fileName) => {
+            const element = document.getElementById(divId);
+            if (!element) {
+                console.error("Div introuvable");
+                return;
+            }
+
+            const canvas = await html2canvas(element, {
+                scale: 2,
+                useCORS: true
+            });
+
+            const imgData = canvas.toDataURL("image/png");
+
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF("p", "mm", "a4");
+
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+            pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+            pdf.save(fileName);
+        };
+
+    </script>
+
 
 </body>
 

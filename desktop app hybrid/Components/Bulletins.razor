@@ -1,0 +1,814 @@
+﻿@inject AuthService Auth
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@using System.Data
+
+<div class="app-shell">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="logo-inline">
+            <img class="logo-icon" src="https://i.ibb.co/yF9Ct6Vh/e45cad7b-df02-42d6-a6ee-1cbb9de115ab.jpg">
+            <div class="logo-text">GradeMaster</div>
+        </div>
+        <Navbar />
+        <div class="sidebar-footer">
+            <a href="/login" class="nav-item">🚪 Déconnexion</a>
+        </div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+        <header class="topbar">
+            <div class="topbar-title">Bulletin de Notes</div>
+            <div class="topbar-right">
+                <span class="topbar-role">@userRole</span>
+                <div class="topbar-user">
+                    <span class="avatar"></span>
+                    <a href="/login" class="link-button">Déconnexion</a>
+                </div>
+            </div>
+        </header>
+
+        <main class="content bulletin-page">
+            <div class="content-inner">
+                @if(userRole=="Admin"){
+                <!-- Barre de sélection élève / période -->
+                <div class="bulletin-filters-panel">
+                    <div class="filters-row">
+                        <div class="filter-field">
+                            <label>Classe</label>
+                            <select value="@selectedClasse" @onchange="@((ChangeEventArgs e) => HandleClasseChange(e?.Value?.ToString() ?? ""))">
+                                <option value="">Toutes les classes</option>
+                                @foreach (var classe in availableClasses)
+                                {
+                                    <option value="@classe">@classe</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="filter-field">
+                            <label>Filière</label>
+                            <select value="@selectedFiliere" @onchange="@((ChangeEventArgs e) => HandleFiliereChange(e?.Value?.ToString() ?? ""))">
+                                <option value="">Toutes les filières</option>
+                                @foreach (var filiere in availableFilieres)
+                                {
+                                    <option value="@filiere">@filiere</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="filter-field">
+                            <label>Étudiant</label>
+                            <select value="@selectedStudentId" 
+                                    @onchange="@((ChangeEventArgs e) => HandleStudentChange(e?.Value?.ToString() ?? ""))"
+                                    disabled="@(userRole != "Admin" || !studentsList.Any())">
+                                @if (studentsList.Any())
+                                {
+                                    @foreach (var s in studentsList)
+                                    {
+                                        <option value="@s.Id">@s.DisplayName</option>
+                                    }
+                                }
+                                else
+                                {
+                                    <option value="">Aucun étudiant trouvé</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="filter-actions">
+                            <button class="primary-button" type="button" @onclick="LoadBulletin">
+                                🔄 Recharger le bulletin
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                }
+                <!-- Carte bulletin -->
+                <div class="bulletin-card" id="bulletincard">
+                    <!-- En-tête établissement -->
+                    <div class="bulletin-header">
+                        <div class="bulletin-logo-block">
+                            <!-- TODO: Remplacer par ton href / img perso -->
+                            <!-- Exemple: <a href="https://mon-ecole.com/logo.png" target="_blank"><img src="..." /></a> -->
+                            <div class="bulletin-logo-placeholder">
+                                <img style="width: 100%;height: 100%;object-fit: cover;" class="logo-icon" src="https://i.ibb.co/yF9Ct6Vh/e45cad7b-df02-42d6-a6ee-1cbb9de115ab.jpg">
+                            </div>
+                        </div>
+                        <div class="bulletin-school-info">
+                            <h1>@schoolName</h1>
+                            <p>@schoolAddress</p>
+                            <p>@schoolContact</p>
+                        </div>
+                        <div class="bulletin-meta-info">
+                            <span class="bulletin-label">Classe</span>
+                            <span class="bulletin-value">@currentStudent.Classe</span>
+                            <span class="bulletin-label">Filière</span>
+                            <span class="bulletin-value">@currentStudent.Filiere</span>
+                        </div>
+                    </div>
+
+                    <hr class="bulletin-divider" />
+
+                    <!-- Détails étudiant -->
+                    <section class="bulletin-section">
+                        <div class="section-header">
+                            <h2>Détails de l'Étudiant</h2>
+                        </div>
+                        <div class="student-details-grid">
+                            <div class="details-column">
+                                <div class="detail-row">
+                                    <span class="detail-label">Nom complet</span>
+                                    <span class="detail-value">@currentStudent.FullName</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Matricule</span>
+                                    <span class="detail-value">@currentStudent.Matricule</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Âge</span>
+                                    <span class="detail-value">@currentStudent.Age ans</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Filière</span>
+                                    <span class="detail-value">@currentStudent.Filiere</span>
+                                </div>
+                            </div>
+
+                            <div class="details-column">
+                                <div class="detail-row">
+                                    <span class="detail-label">Classe</span>
+                                    <span class="detail-value">@currentStudent.Classe</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Date de naissance</span>
+                                    <span class="detail-value">@currentStudent.DateNaissance.ToString("dd/MM/yyyy")</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Absences</span>
+                                    <span class="detail-value">@currentStudent.Absences h</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Retards</span>
+                                    <span class="detail-value">@currentStudent.Retards</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Notes par matière -->
+                    <section class="bulletin-section">
+                        <div class="section-header">
+                            <h2>Notes par Matière</h2>
+                        </div>
+                        <div class="grades-table-wrapper">
+                            <table class="table bulletin-table">
+                                <thead>
+                                    <tr>
+                                        <th>Matière</th>
+                                        <th>Crédits</th>
+                                        <th>Contrôle (50%)</th>
+                                        <th>Examen (50%)</th>
+                                        <th>Moyenne</th>
+                                        <th>Coeff. Pondéré</th>
+                                        <th> Validé</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var g in subjectGrades)
+                                    {
+                                        <tr>
+                                            <td>@g.SubjectName</td>
+                                            <td>@g.Credits</td>
+                                            <td>@g.AssignmentGrade.ToString("F1")</td>
+                                            <td>@g.ExamGrade.ToString("F1")</td>
+                                            <td class="grade-avg">@g.Average.ToString("F1")</td>
+                                            <td>@g.WeightedScore.ToString("F1")</td>
+                                            <td>@g.IsPassing</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <!-- Résumé de performance -->
+                    <section class="bulletin-section">
+                        <div class="section-header">
+                            <h2>Résumé de Performance</h2>
+                        </div>
+                        <div class="performance-grid">
+                            <div class="performance-column">
+                                <div class="perf-row">
+                                    <span class="perf-label">Moyenne Générale</span>
+                                    <span class="perf-value">@performance.GeneralAverage.ToString("F1")</span>
+                                </div>
+                                <div class="perf-row">
+                                    <span class="perf-label">Rang de l'Étudiant</span>
+                                    <span class="perf-value">@performance.RankText</span>
+                                </div>
+                                <div class="perf-row">
+                                    <span class="perf-label">Mention</span>
+                                    <span class="perf-value mention">@performance.Mention</span>
+                                </div>
+                                <div class="perf-row">
+                                    <span class="perf-label">Credits Validés</span>
+                                    <span class="perf-value ">@totalCreditsValidés / @totalCredits</span>
+                                </div>
+                            </div>
+
+                            <div class="performance-column">
+                                <div class="perf-row">
+                                    <span class="perf-label">Moyenne de la Classe</span>
+                                    <span class="perf-value">@performance.ClassAverage.ToString("F1")</span>
+                                </div>
+                                <div class="perf-row">
+                                    <span class="perf-label">Moyenne Min./Max. Classe</span>
+                                    <span class="perf-value">
+                                        @performance.LowestAverage.ToString("F1") / @performance.HighestAverage.ToString("F1")
+                                    </span>
+                                </div>
+                                <div class="perf-row">
+                                    <span class="perf-label">Effectif Classe</span>
+                                    <span class="perf-value">@performance.ClassSize</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Observations -->
+                    <section class="bulletin-section">
+                        <div class="section-header">
+                            <h2>Observations de l'Enseignant</h2>
+                        </div>
+                        <div class="teacher-observations">
+                            @if (!string.IsNullOrWhiteSpace(performance.TeacherComment))
+                            {
+                                <p>@performance.TeacherComment</p>
+                            }
+                            else
+                            {
+                                <p class="placeholder-text">
+                                    Les commentaires de l'enseignant principal apparaîtront ici.
+                                </p>
+                            }
+                        </div>
+
+                        <div class="teacher-signature-row">
+                            <div>
+                                <span class="signature-label">Signature du Fondateur</span>
+                                
+                                
+                            </div>
+                            <div>
+                            <span class="signature-label">Signature du Directeur</span>
+                            
+
+                        </div>
+                            <div>
+                                <span class="signature-label">Date d'émission</span>
+                                <span class="signature-value">@DateTime.Today.ToString("dd/MM/yyyy")</span>
+                            </div>
+                        </div>
+                        <img src="https://i.ibb.co/C53sjV05/signature-sg.png" alt="Alternate Text" width="300" height="150" />
+                        <img src="https://i.ibb.co/xKJPc1gm/signature-pandadoc-1.png" alt="Alternate Text" width="150" height="150" />
+                    </section>
+                </div>
+
+                <!-- Boutons bas de page -->
+                <div class="bulletin-actions-bar">
+                    <button class="secondary-button" type="button" @onclick="ExportToPdf">
+                        📄 Exporter en PDF
+                    </button>
+                    
+                </div>
+
+                <footer class="footer-main">
+                    © 2025 GradeMaster. Tous droits réservés.
+                </footer>
+            </div>
+        </main>
+    </div>
+</div>
+
+@code {
+    private string userRole = "Student";
+    public string fullname = "";
+    private string selectedStudentId = "SG-2123";
+    private string selectedClasse = "";
+    private string selectedFiliere = "";
+
+    // École (statique pour l'instant)
+    private string schoolName = "GradeMaster Academy";
+    private string schoolAddress = "Lomé, Togo";
+    private string schoolContact = "Tél: +228 70 00 00 23 • Email: contact@grademaster.tg";
+
+    // Listes de sélection
+    private List<StudentSelectorItem> studentsList = new();
+    private List<StudentSelectorItem> allStudentsList = new(); // Liste complète pour filtrage
+    private List<string> availableClasses = new();
+    private List<string> availableFilieres = new();
+
+    // Données du bulletin courant
+    private StudentBulletinInfo currentStudent = new();
+    private List<SubjectGradeItem> subjectGrades = new();
+    private PerformanceSummary performance = new();
+    public int id_etud;
+    public int totalCreditsValidés = 0;
+    public int totalCredits = 0;
+    protected override async Task OnInitializedAsync()
+    {
+        userRole = await SecureStorage.GetAsync("userRole") ?? "etudiants";
+        string mailoru = await SecureStorage.GetAsync("username") ?? ""; 
+
+        if (userRole != "Admin" && userRole != "etudiants")
+        {
+            Nav.NavigateTo("/profile");
+            return;
+        }
+
+        // Charger les classes disponibles
+        var classesResult = await Auth.Selector(
+            "DISTINCT c.libelle",
+            "classes c",
+            "1=1 ORDER BY c.libelle"
+        );
+        
+        if (classesResult.Rows.Count > 0)
+        {
+            availableClasses.Clear();
+            foreach (DataRow row in classesResult.Rows)
+            {
+                string libelle = row["libelle"]?.ToString() ?? "";
+                if (!string.IsNullOrWhiteSpace(libelle))
+                {
+                    availableClasses.Add(libelle);
+                }
+            }
+        }
+
+        // Charger les filières disponibles
+        var filieresResult = await Auth.Selector(
+            "DISTINCT filiere",
+            "etudiants",
+            "filiere IS NOT NULL AND filiere <> '' ORDER BY filiere"
+        );
+        
+        if (filieresResult.Rows.Count > 0)
+        {
+            availableFilieres.Clear();
+            foreach (DataRow row in filieresResult.Rows)
+            {
+                string filiere = row["filiere"]?.ToString() ?? "";
+                if (!string.IsNullOrWhiteSpace(filiere))
+                {
+                    availableFilieres.Add(filiere);
+                }
+            }
+        }
+
+        // Si Admin : charger tous les étudiants
+        if (userRole == "Admin")
+        {
+            var allStudentsResult = await Auth.Selector(
+                "e.id_etud, e.nom, e.prenom, e.matricule, e.filiere, c.libelle AS classe",
+                "etudiants e LEFT JOIN classes c ON e.id_classe = c.id_classe",
+                "1=1 ORDER BY e.nom, e.prenom"
+            );
+
+            if (allStudentsResult.Rows.Count > 0)
+            {
+                allStudentsList.Clear();
+                foreach (DataRow row in allStudentsResult.Rows)
+                {
+                    int studentId = row.IsNull("id_etud") ? 0 : Convert.ToInt32(row["id_etud"]);
+                    string nom = row["nom"]?.ToString() ?? "";
+                    string prenom = row["prenom"]?.ToString() ?? "";
+                    string matricule = row["matricule"]?.ToString() ?? "";
+                    string filiere = row["filiere"]?.ToString() ?? "";
+                    string classe = row["classe"]?.ToString() ?? "";
+                    string displayName = $"{prenom} {nom} ({matricule})";
+
+                    allStudentsList.Add(new StudentSelectorItem(
+                        studentId.ToString(), 
+                        displayName, 
+                        classe, 
+                        filiere
+                    ));
+                }
+
+                // Initialiser la liste filtrée avec tous les étudiants
+                studentsList = new List<StudentSelectorItem>(allStudentsList);
+
+                // Sélectionner le premier étudiant par défaut
+                if (studentsList.Any())
+                {
+                    selectedStudentId = studentsList.First().Id;
+                    id_etud = int.Parse(selectedStudentId);
+
+                    // Charger les infos du premier étudiant
+                    var firstStudentResult = await Auth.Selector(
+                        "e.*",
+                        "etudiants e",
+                        "e.id_etud = " + id_etud
+                    );
+
+                    if (firstStudentResult.Rows.Count > 0)
+                    {
+                        LoadStudentInfo(firstStudentResult.Rows[0]);
+                    }
+                }
+            }
+        }
+        else // Si étudiant : charger uniquement son compte
+        {
+            var results = await Auth.Selector(
+                "e.*",
+                "etudiants e join utilisateurs u on u.id_user=e.id_user",
+                "(u.username='" + mailoru + "' or email='" + mailoru + "')"
+            );
+
+            if (results.Rows.Count <= 0)
+            {
+                Nav.NavigateTo("/login");
+                return;
+            }
+
+            LoadStudentInfo(results.Rows[0]);
+
+            // Pour un étudiant, ajouter seulement lui-même dans la liste
+            studentsList.Add(new StudentSelectorItem(
+                id_etud.ToString(),
+                currentStudent.FullName + " (" + currentStudent.Matricule + ")",
+                currentStudent.Classe,
+                currentStudent.Filiere
+            ));
+            allStudentsList = new List<StudentSelectorItem>(studentsList);
+        }
+
+        // Charger automatiquement le bulletin au démarrage
+        await LoadBulletin();
+    }
+
+    private void LoadStudentInfo(DataRow row)
+    {
+        currentStudent.Matricule = row["matricule"]?.ToString() ?? "";
+        currentStudent.FullName = (row["prenom"]?.ToString() ?? "") + " " + (row["nom"]?.ToString() ?? "");
+        currentStudent.Filiere = row["filiere"]?.ToString() ?? "";
+        id_etud = row.IsNull("id_etud") ? 0 : int.Parse(row["id_etud"]?.ToString() ?? "0");
+        selectedStudentId = id_etud.ToString();
+        currentStudent.DateNaissance = row.IsNull("dob")
+            ? DateTime.Now
+            : DateTime.Parse(row["dob"]?.ToString() ?? DateTime.Now.ToString());
+        currentStudent.Absences = row.IsNull("nb_heure_abs")
+            ? 0
+            : int.Parse(row["nb_heure_abs"]?.ToString() ?? "0");
+        currentStudent.Retards = row.IsNull("retards")
+            ? 0
+            : int.Parse(row["retards"]?.ToString() ?? "0");
+    }
+
+    private async Task HandleStudentChange(string idString)
+    {
+        if (string.IsNullOrWhiteSpace(idString))
+            return;
+
+        selectedStudentId = idString;
+        id_etud = int.Parse(idString);
+
+        // Recharger les infos de l'étudiant sélectionné
+        var studentResult = await Auth.Selector(
+            "e.*",
+            "etudiants e",
+            "e.id_etud = " + id_etud
+        );
+
+        if (studentResult.Rows.Count > 0)
+        {
+            LoadStudentInfo(studentResult.Rows[0]);
+            await LoadBulletin();
+        }
+    }
+
+    private void FilterStudents()
+    {
+        studentsList = allStudentsList.Where(s =>
+            (string.IsNullOrWhiteSpace(selectedClasse) || s.Classe == selectedClasse) &&
+            (string.IsNullOrWhiteSpace(selectedFiliere) || s.Filiere == selectedFiliere)
+        ).ToList();
+
+        // Si des filtres sont appliqués et qu'il y a des résultats, sélectionner le premier
+        if (studentsList.Any() && !studentsList.Any(s => s.Id == selectedStudentId))
+        {
+            selectedStudentId = studentsList.First().Id;
+        }
+        
+        StateHasChanged();
+    }
+
+    private async Task HandleClasseChange(string classe)
+    {
+        selectedClasse = classe;
+        FilterStudents();
+        
+        if (studentsList.Any())
+        {
+            await HandleStudentChange(studentsList.First().Id);
+        }
+    }
+
+    private async Task HandleFiliereChange(string filiere)
+    {
+        selectedFiliere = filiere;
+        FilterStudents();
+        
+        if (studentsList.Any())
+        {
+            await HandleStudentChange(studentsList.First().Id);
+        }
+    }
+
+    private async Task LoadBulletin()
+    {
+        // ============================================================
+        // 🔴 ZONE À COMPLÉTER : Appel BD/API pour charger le bulletin
+        // ============================================================
+        // TODO:
+        // 1. Récupérer les infos étudiant (table etudiants)
+        // 2. Récupérer les notes par matière (table notes / matieres)
+        // 3. Calculer les moyennes, rang, mention, etc.
+        //
+        // Exemple de structure:
+        // var dtStudent = await Auth.GetStudentByMatricule(selectedStudentId, selectedYear);
+        // var dtGrades  = await Auth.GetStudentGrades(selectedStudentId, selectedYear, selectedSemester);
+        // Remplir currentStudent, subjectGrades, performance.
+        // ============================================================
+
+        try
+        {
+            subjectGrades.Clear();
+
+            // Requête corrigée avec l'alias 'c' pour la table classes
+            var results = await Auth.Selector(
+                "n.*, m.nom AS nom_matiere, m.credits, c.libelle, c.filiere, c.id_classe",
+                "notes n " +
+                "JOIN matieres m ON n.id_mat = m.id_mat " +
+                "JOIN classes c ON m.id_classe = c.id_classe",
+                "n.id_etud = " + id_etud
+            );
+
+            if (results.Rows.Count == 0)
+            {
+                await JS.InvokeVoidAsync("alert", "Aucune note trouvée pour cet étudiant.");
+                return;
+            }
+
+            currentStudent.Classe = results.Rows[0]["libelle"].ToString() ?? "";
+            int classId = int.Parse(results.Rows[0]["id_classe"].ToString() ?? "0");
+
+            // Charger les notes par matière
+            Dictionary<string, SubjectGradeItem> gradesDict = new();
+
+            foreach (DataRow row in results.Rows)
+            {
+                string subjectName = row["nom_matiere"]?.ToString() ?? "";
+                int credits = row.IsNull("credits") ? 0 : Convert.ToInt32(row["credits"]);
+                string key = $"{subjectName}_{credits}";
+
+                if (!gradesDict.TryGetValue(key, out var grade))
+                {
+                    grade = new SubjectGradeItem(subjectName, credits, 0, 0);
+                    gradesDict[key] = grade;
+                }
+
+                string type = row["type_note"]?.ToString() ?? "";
+                decimal value = row.IsNull("valeur") ? 0 : Convert.ToDecimal(row["valeur"]);
+
+                if (type.Equals("CC", StringComparison.OrdinalIgnoreCase))
+                {
+                    grade.AssignmentGrade = value;
+                }
+                else if (type.Equals("Exam", StringComparison.OrdinalIgnoreCase))
+                {
+                    grade.ExamGrade = value;
+                }
+            }
+
+            // résultat final
+            subjectGrades = gradesDict.Values.ToList();
+            totalCreditsValidés = subjectGrades.Where(g => g.Average >= 12m).Sum(g => g.Credits);                                                       
+            // Calculer les totaux
+            totalCredits = subjectGrades.Sum(g => g.Credits);
+            var totalWeighted = subjectGrades.Sum(g => g.WeightedScore);
+            var nbMatieres = subjectGrades.Count;
+
+            // Statistiques de classe
+            var classStatsResult = await Auth.Selector(
+                "MIN(moy_etud) AS min_moyenne, MAX(moy_etud) AS max_moyenne, AVG(moy_etud) AS moyenne",
+                @"(
+                    SELECT
+                        e.id_etud,
+                        e.id_classe,
+                        AVG(n.valeur) AS moy_etud
+                    FROM notes n
+                    JOIN etudiants e ON n.id_etud = e.id_etud
+                    WHERE e.id_classe = " + classId + @"
+                    GROUP BY e.id_etud, e.id_classe
+                ) AS etud_stats",
+                "1=1"
+            );
+
+            // Effectif de la classe
+            var classSizeResult = await Auth.Selector(
+                "COUNT(*) AS effectif",
+                "etudiants",
+                "id_classe = " + classId
+            );
+            var classSize = classSizeResult.Rows.Count > 0 ? int.Parse(classSizeResult.Rows[0]["effectif"].ToString() ?? "0") : 0;
+
+            // Moyenne générale de l'étudiant
+            var generalAverage = nbMatieres > 0 ? totalWeighted / nbMatieres : 0;
+
+            // Moyennes de classe
+            var classAverage = classStatsResult.Rows.Count > 0 && !classStatsResult.Rows[0].IsNull("moyenne")
+                ? decimal.Parse(classStatsResult.Rows[0]["moyenne"].ToString() ?? "0")
+                : 0;
+            var lowestAverage = classStatsResult.Rows.Count > 0 && !classStatsResult.Rows[0].IsNull("min_moyenne")
+                ? decimal.Parse(classStatsResult.Rows[0]["min_moyenne"].ToString() ?? "0")
+                : 0;
+            var highestAverage = classStatsResult.Rows.Count > 0 && !classStatsResult.Rows[0].IsNull("max_moyenne")
+                ? decimal.Parse(classStatsResult.Rows[0]["max_moyenne"].ToString() ?? "0")
+                : 0;
+
+            // Rang de l'étudiant
+            var rankResult = await Auth.Selector(
+                "id_etud, moyenne, rang",
+                @"(
+                    SELECT
+                        e.id_etud,
+                        AVG(n.valeur) AS moyenne,
+                        DENSE_RANK() OVER (ORDER BY AVG(n.valeur) DESC) AS rang
+                    FROM notes n
+                    JOIN etudiants e ON n.id_etud = e.id_etud
+                    WHERE e.id_classe = " + classId + @"
+                    GROUP BY e.id_etud
+                ) AS classement",
+                "id_etud = " + id_etud
+            );
+
+            var rankText = rankResult.Rows.Count > 0
+                ? rankResult.Rows[0]["rang"].ToString() + " / " + classSize
+                : "N/A";
+
+            // Mention
+            string mention = generalAverage switch
+            {
+                >= 16 => "Très Bien",
+                >= 14 => "Bien",
+                >= 12 => "Assez Bien",
+                >= 10 => "Passable",
+                _ => "Insuffisant"
+            };
+
+            // Commentaire de l'enseignant
+            Dictionary<string, string> commentsDict = new()
+            {
+                { "Très Bien", "Excellent travail tout au long de l'année. Continuez ainsi !" },
+                { "Bien", "Bon travail avec quelques améliorations possibles." },
+                { "Assez Bien", "Travail satisfaisant, mais des efforts sont nécessaires." },
+                { "Passable", "Des progrès sont nécessaires pour atteindre les objectifs." },
+                { "Insuffisant", "Le travail fourni est en dessous des attentes. Besoin d'une attention particulière." }
+            };
+            var teacherComment = commentsDict.ContainsKey(mention) ? commentsDict[mention] : "";
+            
+            // Mise à jour du résumé de performance
+            performance = new PerformanceSummary
+            {
+                GeneralAverage = Math.Round(generalAverage, 2),
+                ClassAverage = Math.Round(classAverage, 2),
+                LowestAverage = Math.Round(lowestAverage, 2),
+                HighestAverage = Math.Round(highestAverage, 2),
+                ClassSize = classSize,
+                RankText = rankText,
+                Mention = mention,
+                TeacherComment = teacherComment
+            };
+
+            await JS.InvokeVoidAsync("console.log", "Bulletin chargé avec succès");
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("console.error", $"Erreur lors du chargement du bulletin: {ex.Message}");
+            await JS.InvokeVoidAsync("alert", $"Erreur: {ex.Message}");
+        }
+    }
+
+    private async Task ExportToPdf()
+    {
+
+        fullname = (currentStudent.FullName + "").Replace(" ", "_");
+        await JS.InvokeVoidAsync("exportDivToPdf", "bulletincard", fullname+"_bulletin.pdf"); 
+        // ============================================================
+        // 🔴 ZONE À COMPLÉTER : Export PDF
+        // ============================================================
+        // Approches possibles :
+        // - Côté serveur : générer un PDF (iTextSharp, QuestPDF, etc.) à partir
+        //   des données, puis renvoyer un flux / lien de téléchargement.
+        // - Côté client : utiliser JS interop pour imprimer en PDF la div
+        //   .bulletin-card (window.print avec CSS print spécifique).
+        //
+        // Exemple minimal JS:
+        // await JS.InvokeVoidAsync("exportBulletinToPdf", "bulletin-root-id");
+        // ============================================================
+
+        await JS.InvokeVoidAsync("alert", "Export PDF (TODO).");
+    }
+
+    private async Task ExportToExcel()
+    {
+        // ============================================================
+        // 🔴 ZONE À COMPLÉTER : Export des notes en Excel
+        // ============================================================
+        // Idées :
+        // - Générer un fichier .xlsx côté serveur (EPPlus, ClosedXML)
+        // - Inclure les colonnes : Matière, Crédits, CC, Examen, Moyenne
+        // - Ajouter une ligne de résumé avec la moyenne générale, mention, etc.
+        // - Retourner un lien / flux de téléchargement au client.
+        // ============================================================
+
+        await JS.InvokeVoidAsync("alert", "Export Excel (TODO).");
+    }
+
+    private async Task PrintBulletin()
+    {
+        // ============================================================
+        // 🔴 ZONE À COMPLÉTER : Impression du bulletin
+        // ============================================================
+        // Approches :
+        // - JS interop : window.print() avec un CSS @media print pour
+        //   n'imprimer que la carte .bulletin-card (masquer sidebar, boutons).
+        //
+        // Exemple :
+        // await JS.InvokeVoidAsync("printBulletin");
+        // ============================================================
+
+        await JS.InvokeVoidAsync("alert", "Impression du bulletin (TODO).");
+    }
+
+    /* ================= MODELS ================= */
+
+    record StudentSelectorItem(string Id, string DisplayName, string Classe = "", string Filiere = "");
+
+    class StudentBulletinInfo
+    {
+        public string Matricule { get; set; } = "";
+        public string FullName { get; set; } = "";
+        public string Filiere { get; set; } = "";
+        public string Classe { get; set; } = "";
+        public DateTime DateNaissance { get; set; } = new DateTime(2003, 1, 1);
+        public int Absences { get; set; } = 0;
+        public int Retards { get; set; } = 0;
+        public int Age
+        {
+            get
+            {
+                var today = DateTime.Today;
+                var age = today.Year - DateNaissance.Year;
+                if (DateNaissance.Date > today.AddYears(-age)) age--;
+                return age;
+            }
+        }
+    }
+
+    class SubjectGradeItem
+    {
+        public string SubjectName { get; set; }
+        public int Credits { get; set; }
+        public decimal AssignmentGrade { get; set; }
+        public decimal ExamGrade { get; set; }
+        public decimal Average => (AssignmentGrade + ExamGrade) / 2m;
+        public decimal WeightedScore => Average ;
+        public string IsPassing => Average >= 12m? "oui":"non";
+
+        public SubjectGradeItem(string name, int credits, decimal cc, decimal exam)
+        {
+            SubjectName = name;
+            Credits = credits;
+            AssignmentGrade = cc;
+            ExamGrade = exam;
+        }
+    }
+
+    class PerformanceSummary
+    {
+        public decimal GeneralAverage { get; set; }
+        public decimal ClassAverage { get; set; }
+        public decimal LowestAverage { get; set; }
+        public decimal HighestAverage { get; set; }
+        public int ClassSize { get; set; }
+        public string RankText { get; set; } = "";
+        public string Mention { get; set; } = "";
+        public string TeacherComment { get; set; } = "";
+        //public string HomeroomTeacher { get; set; } = "";
+    }
+}

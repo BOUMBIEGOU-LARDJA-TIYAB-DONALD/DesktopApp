@@ -1,5 +1,9 @@
+@using System.Data
+@using System.Linq
+@using static desktop_app_hybrid.Components.Dashboard
 @inject AuthService Auth
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <div class="app-shell">
     <div class="sidebar">
@@ -8,119 +12,146 @@
             <div class="logo-text">GradeMaster</div>
         </div>
 
-        <nav class="nav">
-            <a href="/dashboard" class="nav-item active">Dashboard</a>
-            <a href="/students" class="nav-item">Students</a>
-            <a href="/classes" class="nav-item">Classes</a>
-            <a href="/subjects" class="nav-item">Subjects</a>
-            <a href="/grades" class="nav-item">Grades</a>
-            <a href="/bulletins" class="nav-item">Bulletins</a>
-            <a href="/reports" class="nav-item">Reports</a>
-            <a href="/settings" class="nav-item">Settings</a>
-        </nav>
+       <Navbar />
 
         <div class="sidebar-footer">
-            <a href="/logout" class="nav-item logout">Logout</a>
+            <a href="/login" class="nav-item login">Déconnexion</a>
         </div>
     </div>
 
     <div class="main">
         <header class="topbar">
-            <div class="topbar-title">Dashboard</div>
+            <div class="topbar-title">Tableau de bord</div>
             <div class="topbar-right">
                 <span class="topbar-role">@role</span>
                 <div class="topbar-user">
                     <span class="avatar"></span>
-                    <button class="link-button">Logout</button>
+                    <button class="link-button">Déconnexion</button>
                 </div>
             </div>
         </header>
 
-        <main class="content">
-            <div class="cards-row">
-                <div class="kpi-card">
-                    <div class="kpi-label">Total Students</div>
-                    <div class="kpi-value">@metrics.TotalStudents</div>
-                    <div class="kpi-sub">Across all grades and classes</div>
-                </div>
-                <div class="kpi-card">
-                    <div class="kpi-label">Total Classes</div>
-                    <div class="kpi-value">@metrics.TotalClasses</div>
-                    <div class="kpi-sub">Active classes this semester</div>
-                </div>
-                <div class="kpi-card">
-                    <div class="kpi-label">Total Subjects</div>
-                    <div class="kpi-value">@metrics.TotalSubjects</div>
-                    <div class="kpi-sub">Core and elective subjects</div>
-                </div>
-                <div class="kpi-card">
-                    <div class="kpi-label">Average Grade</div>
-                    <div class="kpi-value">@metrics.AverageGrade%</div>
-                    <div class="kpi-sub">Overall student performance</div>
-                </div>
-            </div>
+        <main class="content dashboard-page">
+            <div class="content-inner">
 
-            <div class="grid-2">
-                <div class="panel">
-                    <div class="panel-header">
-                        <h2>Grade Distribution</h2>
+                <!-- Ligne 1 : KPI cards -->
+                <div class="dashboard-kpi-row">
+                    <div class="kpi-card">
+                        <div class="kpi-label">Total Étudiants</div>
+                        <div class="kpi-value">@metrics.TotalStudents</div>
+                        <div class="kpi-sub">À travers tous les niveaux et classes</div>
                     </div>
-                    <div class="panel-body chart-placeholder">
-                        <!-- future chart -->
+                    <div class="kpi-card">
+                        <div class="kpi-label">Total Classes</div>
+                        <div class="kpi-value" >@metrics.TotalClasses</div>
+                        <div class="kpi-sub">Classes actives ce semestre</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Total Matières</div>
+                        <div class="kpi-value">@metrics.TotalSubjects</div>
+                        <div class="kpi-sub">Matières principales et optionnelles</div>
+                    </div>
+                    
+                </div>
+
+                <!-- Ligne 2 : deux panels charts -->
+                <div class="dashboard-charts-row">
+                    <div class="dashboard-panel">
+                        <div class="dashboard-panel-header">
+                            <span>Comparaison des meilleurs notes par classe</span>
+                            <select class="chart-type-selector" value="@type1" @onchange="UpdateChart1">
+                                <option value="line">Linéaire</option>
+                                <option value="bar">Barres</option>
+                                <option value="pie">Camembert</option>
+                                <option value="doughnut">Anneau</option>
+                                <option value="radar">Radar</option>
+                            </select>
+                        </div>
+                        <div class="dashboard-panel-body">
+                            <div class="dashboard-chart-placeholder">
+                                <canvas id="classeChartMax"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-panel">
+                        <div class="dashboard-panel-header">
+                            <span>Comparaison des moyennes par Classe</span>
+                            <select class="chart-type-selector" value="@type2" @onchange="UpdateChart2">
+                                <option value="line">Linéaire</option>
+                                <option value="bar">Barres</option>
+                                <option value="pie">Camembert</option>
+                                <option value="doughnut">Anneau</option>
+                                <option value="radar">Radar</option>
+                            </select>
+                        </div>
+                        <div class="dashboard-panel-body">
+                            <div class="dashboard-chart-placeholder">
+                                <canvas id="classeChartMoyenne"></canvas>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="panel">
-                    <div class="panel-header">
-                        <h2>Class Performance Comparison</h2>
+                <!-- Ligne 3 : Recent Activities + Quick Actions -->
+                <div class="dashboard-bottom-row">
+                    <!-- Recent Activities -->
+                    <div class="dashboard-activities-panel">
+                        <div class="dashboard-panel-header">Activités Récentes</div>
+                        <div class="dashboard-panel-body">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Événement</th>
+                                      
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in activities)
+                                    {
+                                        <tr>
+                                            <td>@item.Event</td>
+                                            
+                                            <td>@item.Date</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                    <div class="panel-body chart-placeholder">
-                        <!-- future chart -->
+
+                    <!-- Quick Actions -->
+                    <div class="dashboard-quick-actions">
+                        <div class="dashboard-panel-header">Actions Rapides</div>
+                        <div class="quick-actions-grid">
+                             <a href="/students">
+                            <button class="quick-action-card" type="button">
+                                <div class="quick-action-title">Ajouter Nouvel Étudiant</div>
+                                <div class="quick-action-sub">Inscrire un nouvel étudiant dans le système</div>
+                            </button>
+                            </a>
+                            <a href="/grades">
+                            <button class="quick-action-card" type="button">
+                                <div class="quick-action-title">Ajouter/Modifier Note</div>
+                                <div class="quick-action-sub">Gérer les notes des devoirs et examens</div>
+                            </button>
+                            </a>
+                            <a href="/bulletins">
+                            <button class="quick-action-card" type="button">
+                                <div class="quick-action-title">Générer Bulletin</div>
+                                <div class="quick-action-sub">Créer des rapports académiques pour les étudiants</div>
+                            </button>
+                            </a>
+                        </div>
                     </div>
                 </div>
+             
+                
+                <footer class="footer-main">
+                    © 2025 GradeMaster. Tous droits réservés.
+                </footer>
             </div>
-
-            <div class="panel">
-                <div class="panel-header">
-                    <h2>Recent Activities</h2>
-                </div>
-                <div class="panel-body">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Event</th>
-                                <th>User</th>
-                                <th>Date</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var item in activities)
-                            {
-                                <tr>
-                                    <td>@item.Event</td>
-                                    <td>@item.User</td>
-                                    <td>@item.Date</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="panel">
-                <div class="panel-header">
-                    <h2>Quick Actions</h2>
-                </div>
-                <div class="panel-body quick-actions">
-                    <button class="primary-button">Add New Student</button>
-                    <button class="secondary-button">Add/Edit Grade</button>
-                    <button class="secondary-button">Generate Bulletin</button>
-                </div>
-            </div>
-
-            <footer class="footer-main">
-                © 2025 GradeMaster. All rights reserved.
-            </footer>
         </main>
     </div>
 </div>
@@ -128,34 +159,190 @@
 @code {
 
     string role;
+
+    private DashboardMetrics metrics = new()
+    {
+        TotalStudents = 0,
+        TotalClasses = 0,
+        TotalSubjects = 0,
+        AverageMoyenne = 0
+    };
+
+    private List<ActivityItem> activities = new();
+    private List<ClasseMoyenne> classeMoyennes = new();
+    private List<ClasseMaximum> classeMaxima = new();
+    public string type1 = "bar";
+    public string type2 = "bar";
+
     protected override async Task OnInitializedAsync()
     {
         role = await SecureStorage.GetAsync("userRole");
-    }
-    private DashboardMetrics metrics = new()
-    {
-        TotalStudents = 543,
-        TotalClasses = 12,
-        TotalSubjects = 7,
-        AverageGrade = 88.5m
-    };
+        if (string.IsNullOrEmpty(role))
+        {
+            Nav.NavigateTo("/login");
+        }
+        if(role != "Admin" )
+        {
+            Nav.NavigateTo("/profile");
+        }
 
-    private List<ActivityItem> activities = new()
+        var result = await Auth.Selector("count(id_mat) as total ", "matieres"); 
+        if(result.Rows.Count > 0)
+        {
+            metrics.TotalSubjects = Convert.ToInt32(result.Rows[0]["total"]);
+        }
+        else
+        {
+            metrics.TotalSubjects = 0;
+        }
+        
+        result = await Auth.Selector("count(id_classe) as total ", "classes");
+        if (result.Rows.Count > 0)
+        {
+            metrics.TotalClasses = Convert.ToInt32(result.Rows[0]["total"]);
+        }
+        else
+        {
+            metrics.TotalClasses = 0;
+        }
+        
+        result = await Auth.Selector("count(id_etud) as total ", "etudiants");
+        if (result.Rows.Count > 0)
+        {
+            metrics.TotalStudents = Convert.ToInt32(result.Rows[0]["total"]);
+        }
+        else
+        {
+            metrics.TotalStudents = 0;
+        }
+
+        // Calculer la moyenne générale
+        result = await Auth.Selector("AVG(n.valeur) as moyenne_generale", "notes n");
+        if (result.Rows.Count > 0 && result.Rows[0]["moyenne_generale"] != DBNull.Value)
+        {
+            metrics.AverageMoyenne = Convert.ToDouble(result.Rows[0]["moyenne_generale"]);
+        }
+        else
+        {
+            metrics.AverageMoyenne = 0;
+        }
+        
+        result = await Auth.Selector("top 20 valeur,date_log", "logs order by date_log desc");
+        if(result.Rows.Count >0)
+        {
+            activities.Clear();
+            foreach(DataRow row in result.Rows)
+            {
+                activities.Add( new ActivityItem( row["valeur"].ToString() ?? "", row["date_log"].ToString() ?? "" ));
+            }
+        }
+
+        classeMoyennes.Clear();
+        result = await Auth.Selector("c.libelle AS classe, c.filiere, AVG(n.valeur) AS moyenne",
+                                     "notes n JOIN etudiants e ON n.id_etud = e.id_etud " +
+                                     "JOIN classes c ON e.id_classe = c.id_classe " +
+                                     "GROUP BY c.id_classe, c.libelle, c.filiere " +
+                                     "ORDER BY c.libelle");
+
+        foreach(DataRow row in result.Rows)
+        {
+            string classe = (row["classe"].ToString() ?? "") + " " + (row["filiere"].ToString() ?? "");
+            double moyenne = row["moyenne"] != DBNull.Value ? Convert.ToDouble(row["moyenne"]) : 0;
+            
+            await JS.InvokeVoidAsync("console.log", $"Classe: {classe}, Moyenne: {moyenne}");
+            classeMoyennes.Add( new ClasseMoyenne { Classe = classe, Moyenne = moyenne } );
+        }
+
+        classeMaxima.Clear();
+        result = await Auth.Selector("c.libelle AS classe, c.filiere, MAX(n.valeur) AS maximum",
+                                     "notes n JOIN etudiants e ON n.id_etud = e.id_etud " +
+                                     "JOIN classes c ON e.id_classe = c.id_classe " +
+                                     "GROUP BY c.id_classe, c.libelle, c.filiere " +
+                                     "ORDER BY c.libelle");
+        
+        foreach (DataRow row in result.Rows)
+        {
+            string classe = (row["classe"].ToString() ?? "") + " " + (row["filiere"].ToString() ?? "");
+            double maximum = row["maximum"] != DBNull.Value ? Convert.ToDouble(row["maximum"]) : 0;
+            
+            await JS.InvokeVoidAsync("console.log", $"Classe: {classe}, Maximum: {maximum}");
+            classeMaxima.Add(new ClasseMaximum { Classe = classe, Maximum = maximum });
+        }
+        
+        // Force un re-render pour mettre à jour les graphiques
+        StateHasChanged();
+    }
+
+    private bool chartsCreated = false;
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        new ActivityItem("Grade updated for Alice Smith in Math", "Mr. Davis", "2023-10-26 14:30"),
-        new ActivityItem("New student John Doe enrolled in Grade 10", "Admin", "2023-10-26 10:15"),
-        new ActivityItem("Class 'Biology 101' created by Mrs. White", "Admin", "2023-10-25 16:00"),
-        new ActivityItem("Report generated for Semester 1, Class 9A", "Mrs. Green", "2023-10-25 09:00"),
-        new ActivityItem("Assignment 'Algebra Test' added to Math", "Mr. Davis", "2023-10-24 11:45")
-    };
+        // Créer les graphiques seulement si on a des données et qu'ils n'ont pas encore été créés
+        if ((classeMoyennes.Any() || classeMaxima.Any()) && !chartsCreated)
+        {
+            chartsCreated = true;
+            
+            await JS.InvokeVoidAsync("console.log", $"Creating charts with {classeMoyennes.Count} moyenne items and {classeMaxima.Count} max items");
+            
+            // Moyenne par classe
+            if (classeMoyennes.Any())
+            {
+                var moyenneLabels = classeMoyennes.Select(c => c.Classe).ToArray();
+                var moyenneValues = classeMoyennes.Select(c => c.Moyenne).ToArray();
+                await JS.InvokeVoidAsync("createChart", "classeChartMoyenne", moyenneLabels, moyenneValues, type2, 20);
+            }
+
+            // Meilleures notes par classe
+            if (classeMaxima.Any())
+            {
+                var maxLabels = classeMaxima.Select(c => c.Classe).ToArray();
+                var maxValues = classeMaxima.Select(c => c.Maximum).ToArray();
+                await JS.InvokeVoidAsync("createChart", "classeChartMax", maxLabels, maxValues, type1, 20);
+            }
+        }
+    }
+
+    private async Task UpdateChart1(ChangeEventArgs e)
+    {
+        type1 = e.Value?.ToString() ?? "bar";
+        if (classeMaxima.Any())
+        {
+            var maxLabels = classeMaxima.Select(c => c.Classe).ToArray();
+            var maxValues = classeMaxima.Select(c => c.Maximum).ToArray();
+            await JS.InvokeVoidAsync("createChart", "classeChartMax", maxLabels, maxValues, type1, 20);
+        }
+    }
+
+    private async Task UpdateChart2(ChangeEventArgs e)
+    {
+        type2 = e.Value?.ToString() ?? "bar";
+        if (classeMoyennes.Any())
+        {
+            var moyenneLabels = classeMoyennes.Select(c => c.Classe).ToArray();
+            var moyenneValues = classeMoyennes.Select(c => c.Moyenne).ToArray();
+            await JS.InvokeVoidAsync("createChart", "classeChartMoyenne", moyenneLabels, moyenneValues, type2, 20);
+        }
+    }
 
     class DashboardMetrics
     {
         public int TotalStudents { get; set; }
         public int TotalClasses { get; set; }
         public int TotalSubjects { get; set; }
-        public decimal AverageGrade { get; set; }
+        public double AverageMoyenne { get; set; }
+    }
+    
+    public class ClasseMoyenne
+    {
+        public string Classe { get; set; } = "";
+        public double Moyenne { get; set; }
+    }
+    
+    public class ClasseMaximum
+    {
+        public string Classe { get; set; } = "";
+        public double Maximum { get; set; }
     }
 
-    record ActivityItem(string Event, string User, string Date);
+    record ActivityItem(string Event, string Date);
 }

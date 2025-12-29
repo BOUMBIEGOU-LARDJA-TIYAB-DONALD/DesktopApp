@@ -1,0 +1,189 @@
+﻿
+@using System.Net.Mail
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject AuthService Auth
+
+<div class="auth-shell">
+    <div class="otp-card">
+        <div class="otp-header">
+            <h1>Vérification de l'adresse email</h1>
+            <h3>Vous devez verifier votre compte avant de continuer</h3>
+            <p>
+                Un code de vérification à 6 chiffres a été envoyé à votre adresse email.
+                Veuillez le saisir ci-dessous pour activer votre compte.
+            </p>
+        </div>
+
+        <EditForm Model="@model" OnValidSubmit="@VerifyCode">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="otp-input-group">
+                <label for="otp">Code de vérification (OTP)</label>
+                <input id="otp"
+                       type="text"
+                       maxlength="6"
+                       inputmode="numeric"
+                       pattern="[0-9]*"
+                       @bind="model.Code"
+                       @bind:event="oninput"
+                       placeholder="000000" />
+                <span class="hint">
+                    Le code expire dans @remainingSeconds s.
+                </span>
+            </div>
+
+            <div class="otp-status-message">
+                @if (!string.IsNullOrWhiteSpace(statusMessage))
+                {
+                    <span class="@statusClass">@statusMessage</span>
+                }
+            </div>
+
+            <div class="otp-actions">
+                <button type="submit" class="primary-button" disabled="@isVerifying">
+                    @(isVerifying ? "Vérification..." : "Vérifier le code")
+                </button>
+
+                <button type="button"
+                        class="secondary-button"
+                        disabled="@(!canResend)"
+                        @onclick="ResendCode">
+                    @(canResend ? "Renvoyer le code" : $"Renvoyer dans {remainingSeconds}s")
+                </button>
+            </div>
+        </EditForm>
+
+        <div class="otp-footer">
+            <p>
+                Vous vous êtes trompé d'adresse ? 
+                <a href="/signup">Revenir à l'inscription</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+@code {
+    private OtpModel model = new();
+    private bool isVerifying = false;
+    private bool canResend = false;
+    private int remainingSeconds = 120; // 2 minutes
+    private string statusMessage = "";
+    private string statusClass = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        // TODO:
+        // - Récupérer depuis SecureStorage / AuthService l'email de l'utilisateur
+        //   et l'OTP généré côté serveur (ou le générer ici et l'envoyer).
+        // - Lancer un timer côté client pour le compte à rebours (ici simple démo).
+
+        StartCountdown();
+    }
+
+    private async Task VerifyCode()
+    {
+        if (string.IsNullOrWhiteSpace(model.Code) || model.Code.Length != 6)
+        {
+            statusMessage = "Le code doit contenir 6 chiffres.";
+            statusClass = "otp-error";
+            return;
+        }
+        var username = await SecureStorage.GetAsync("username");
+        isVerifying = true;
+        statusMessage = "";
+        statusClass = "";
+        bool ok = await Auth.Verifyotp(Convert.ToInt32(model.Code),username);
+        if(ok)
+        {
+            statusMessage = "Adresse email vérifiée avec succès.";
+            statusClass = "otp-success";
+             SecureStorage.Remove("mustverify");
+            Nav.NavigateTo("/profile", true);
+            return;
+        }else
+        {
+            statusMessage = "Code invalide ou expiré.";
+            statusClass = "otp-error";
+        }
+        // ============================================================
+        // 🔴 ZONE À COMPLÉTER : Vérification du code côté serveur
+        // ============================================================
+        // Exemple d’idée :
+        // bool ok = await Auth.VerifyEmailOtpAsync(model.Code);
+        // if (ok) {
+        //     // Marquer l'email comme confirmé en BD,
+        //     // connecter l'utilisateur, puis rediriger.
+        //     Nav.NavigateTo("/dashboard", true);
+        // } else {
+        //     statusMessage = "Code invalide ou expiré.";
+        //     statusClass = "otp-error";
+        // }
+        // ============================================================
+
+
+
+    }
+
+    private async Task ResendCode()
+    {
+        if (!canResend) return;
+
+        canResend = false;
+        remainingSeconds = 120;
+        long timestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        string code = timestampMs.ToString().Substring(7,6);
+        var mailoru = await SecureStorage.GetAsync("username");
+        string mail;
+        string username;
+        if( (new MailAddress(mailoru)).Address ==mailoru){
+            mail=mailoru;
+            var result = await Auth.Selector("username", "utilisateurs", "email='" + mail + "'");
+            username = result.Rows[0]["username"].ToString();
+        }else{
+            username = mailoru;
+            var result = await Auth.Selector("email", "utilisateurs", "username='" + username + "'");
+            mail = result.Rows[0]["email"].ToString();
+        }
+        await Auth.sendotp(mail, code, username);
+        // Juste pour la démo
+        // ============================================================
+        // 🔴 ZONE À COMPLÉTER : Génération + envoi d’un NOUVEAU code
+        // ============================================================
+        // Exemple :
+        // 1. Générer un code random 6 chiffres côté serveur
+        // 2. Le stocker (BD / cache) lié à l'email / id_user + date d’expiration
+        // 3. Envoyer l'email avec le template HTML ci-dessous
+        //    await Auth.SendEmailOtpAsync(userEmail, generatedCode);
+        // ============================================================
+
+        await JS.InvokeVoidAsync("alert", "Nouveau code envoyé (TODO).");
+
+        StartCountdown();
+    }
+
+    private void StartCountdown()
+    {
+        canResend = false;
+        _ = CountdownLoop();
+    }
+
+    private async Task CountdownLoop()
+    {
+        while (remainingSeconds > 0)
+        {
+            await Task.Delay(1000);
+            remainingSeconds--;
+            StateHasChanged();
+        }
+
+        canResend = true;
+        StateHasChanged();
+    }
+
+    class OtpModel
+    {
+        public string Code { get; set; } = "";
+    }
+}

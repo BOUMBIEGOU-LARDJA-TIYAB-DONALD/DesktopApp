@@ -1,0 +1,101 @@
+/* ========================================================
+   FIX: Rendre les éléments cliquables dans Students.razor
+   ======================================================== */
+
+/* Fix z-index pour rendre les éléments interactifs */
+.students-page .content-inner {
+    position: relative;
+    z-index: 1;
+}
+
+.students-header-row,
+.students-filters-panel {
+    position: relative;
+    z-index: 10;
+}
+
+.students-add-btn,
+.search-bar input,
+.filter-select select,
+.primary-button,
+.secondary-button,
+.action-btn,
+button,
+input,
+select {
+    position: relative;
+    z-index: 15 !important;
+    pointer-events: auto !important;
+}
+
+/* S'assurer que l'overlay modal ne bloque pas quand fermé */
+.modal-overlay {
+    pointer-events: auto;
+}
+
+.modal-container:not(.show) {
+    pointer-events: none !important;
+    display: none;
+}
+
+.modal-container.show {
+    pointer-events: auto;
+    display: block;
+}
+
+/* Fix sidebar overlap */
+.main {
+    position: relative;
+    z-index: 1;
+}
+
+.content {
+    position: relative;
+    z-index: 5;
+}
+
+/* Fix pour les filtres et recherche */
+.search-bar {
+    position: relative;
+    z-index: 1;
+}
+
+.search-icon {
+    pointer-events: none;
+}
+
+.filters-group {
+    position: relative;
+    z-index: 1;
+}
+
+.filter-select {
+    position: relative;
+    z-index: 1;
+}
+
+/* Fix pour le tableau et les actions */
+.students-panel {
+    position: relative;
+    z-index: 2;
+}
+
+.actions-cell {
+    position: relative;
+    z-index: 1;
+}
+
+.action-btn {
+    z-index: 20 !important;
+}
+
+/* Debug: bordure rouge temporaire pour voir les éléments cliquables */
+/* Décommenter pour déboguer */
+/*
+.students-add-btn,
+.search-bar input,
+.filter-select select,
+.action-btn {
+    outline: 2px solid red !important;
+}
+*/

@@ -9,9 +9,9 @@
         <div class="logo-text">GradeMaster</div>
     </div>
 
-    <h1>Create Your GradeMaster Account</h1>
+    <h1>Créer Votre Compte GradeMaster</h1>
     <p class="subtitle">
-        Unlock efficient student grading and management. Join GradeMaster today!
+        Débloquez une gestion et notation efficace des étudiants. Rejoignez GradeMaster aujourd'hui !
     </p>
 
     <EditForm Model="@model" OnValidSubmit="Submit">
@@ -29,7 +29,7 @@
         </div>
 
         <div class="form-group">
-            <label>Username</label>
+            <label>Nom d'utilisateur</label>
             <InputText @bind-Value="model.Username" />
         </div>
 
@@ -39,12 +39,12 @@
         </div>
 
         <div class="form-group">
-            <label>Prenoms</label>
+            <label>Prénoms</label>
             <InputText @bind-Value="model.Prenoms" />
         </div>
 
         <div class="form-group">
-            <label>Password</label>
+            <label>Mot de passe</label>
             <!-- input HTML + oninput handler that accepts ChangeEventArgs -->
             <input type="password"
                    value="@model.Password"
@@ -53,7 +53,7 @@
         </div>
 
         <div class="form-group">
-            <label>Confirm Password</label>
+            <label>Confirmer le mot de passe</label>
             <input type="password"
                    value="@model.ConfirmPassword"
                    @oninput="OnConfirmPasswordInput"
@@ -66,18 +66,18 @@
         }
 
         <div class="form-group">
-            <label>Role</label>
+            <label>Rôle</label>
             <InputSelect @bind-Value="model.Role">
-                <option value="etudiants">etudiants</option>
-                <option value="enseignants">enseignants</option>
+                <option value="etudiants">Étudiant</option>
+                <option value="enseignants">Enseignant</option>
             </InputSelect>
         </div>
 
-        <button type="submit" disabled="@odiasble">Create Account</button>
+        <button type="submit" disabled="@odiasble">Créer le Compte</button>
     </EditForm>
 
     <div class="footer">
-        Already have an account? <a href="/login">Se connecter</a>
+        Vous avez déjà un compte ? <a href="/login">Se connecter</a>
     </div>
 </div>
 
@@ -127,10 +127,7 @@
         int it = model.Role == "enseignants" ? 1 : 0;
         int ist = model.Role == "etudiants" ? 1 : 0;
 
-
-
-
-        bool success = await Auth.SignupAsync(
+        int success = await Auth.SignupAsync(
             model.Username,
             model.Email,
             model.Password,
@@ -140,14 +137,20 @@
             model.Prenoms,
             model.Role
         );
-        if (success)
+        if (success==1)
         {
             message = "Compte créé avec succès. Redirection...";
-            Nav.NavigateTo("/login");
+            await SecureStorage.SetAsync("username", model.Username);
+            await SecureStorage.SetAsync("mustverify", "true"); 
+            Nav.NavigateTo("/code");
+        }
+        else if (success==-1)
+        {
+            message = "Username ou email déja existant ";
         }
         else
         {
-            message = "Erreur lors de la création du compte.";
+            message = "Erreur lors de la creation du compte veuillez reesayer";
         }
     }
 
@@ -164,7 +167,6 @@
 
         [Required]
         public string Prenoms { get; set; } = "";
-
 
         [Required, MinLength(6)]
         public string Password { get; set; } = "";

@@ -1,0 +1,897 @@
+﻿@inject AuthService Auth
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Data
+
+<div class="app-shell">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="logo-inline">
+            <img class="logo-icon" src="https://i.ibb.co/yF9Ct6Vh/e45cad7b-df02-42d6-a6ee-1cbb9de115ab.jpg">
+            <div class="logo-text">GradeMaster</div>
+        </div>
+        <Navbar />
+        <div class="sidebar-footer">
+            <a href="/login" class="nav-item">🚪 Déconnexion</a>
+        </div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+        <header class="topbar">
+            <div class="topbar-title">Liste des Étudiants</div>
+            <div class="topbar-right">
+                <span class="topbar-role">@userRole</span>
+                <div class="topbar-user">
+                    <span class="avatar"></span>
+                    <a href="/login" class="link-button">Déconnexion</a>
+                </div>
+            </div>
+        </header>
+
+        <main class="content students-page">
+            <div class="content-inner">
+
+                <!-- Header + CTA -->
+                <div class="students-header-row">
+                    <h1>Liste des Étudiants</h1>
+                </div>
+
+                <!-- Barre de recherche + Filtres -->
+                <div class="students-filters-panel">
+                    <div class="search-bar">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" 
+                               placeholder="Chercher par nom ou ID..." 
+                               @bind="searchQuery" 
+                               @bind:event="oninput" />
+                    </div>
+
+                    <div class="filters-group">
+                        <div class="filter-select">
+                            <label>Toutes les classes</label>
+                            <select @bind="selectedClass" @bind:event="onchange">
+                                <option value="">Toutes les classes</option>
+                                @foreach (var cls in availableClasses)
+                                {
+                                    <option value="@cls">@cls</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="filter-select">
+                            <label>Tous les statuts</label>
+                            <select @bind="selectedStatus" @bind:event="onchange">
+                                <option value="">Tous les statuts</option>
+                                <option value="1">Actif</option>
+                                <option value="0">Inactif</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tableau des Étudiants -->
+                <div class="students-panel">
+                    <div class="panel-header">
+                        <h2>Dossiers Étudiants</h2>
+                    </div>
+                    <div class="students-table-wrapper">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Nom <span class="sort-icon">⇅</span></th>
+                                    <th>ID <span class="sort-icon">⇅</span></th>
+                                    <th>Âge <span class="sort-icon">⇅</span></th>
+                                    <th>Classe <span class="sort-icon">⇅</span></th>
+                                    @* <th>Moyenne <span class="sort-icon">⇅</span></th> *@
+                                    <th>Statut <span class="sort-icon">⇅</span></th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (filteredStudents.Any())
+                                {
+                                    @foreach (var student in filteredStudents)
+                                    {
+                                        <tr class="table-row">
+                                            <td class="student-name">
+                                                <span class="name-badge">@student.Nom @student.Prenom</span>
+                                            </td>
+                                            <td class="student-id">
+                                                <span class="id-code">@student.Matricule</span>
+                                            </td>
+                                            <td class="student-age">
+                                                <span class="age-badge">@CalculateAge(student.DateOfBirth)</span>
+                                            </td>
+                                            <td class="student-class">
+                                                <span class="class-badge">@(student.classename ?? "N/A")</span>
+                                            </td>
+                                            @* <td class="student-grade">
+                                                <span class="grade-percentage">@student.AverageGrade.ToString("F1")%</span>
+                                            </td> *@
+                                            <td class="student-status">
+                                                <span class="status-badge @GetStatusClass(student.Status)">
+                                                    @GetStatusLabel(student.Status)
+                                                </span>
+                                            </td>
+                                            <td class="actions-cell">
+                                                
+                                                <button class="action-btn edit-btn" type="button" 
+                                                        @onclick="() => EditStudent(student)" title="Modifier">
+                                                    ✏️ Modifier
+                                                </button>
+                                                <button class="action-btn delete-btn" type="button" 
+                                                        @onclick="() => DeleteStudent(student)" title="Supprimer">
+                                                    🗑️ Supprimer
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <td colspan="7" class="text-center empty-message">
+                                            <div class="empty-state-icon">📭</div>
+                                            <p>Aucun étudiant trouvé.</p>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <footer class="footer-main">
+                    © 2025 GradeMaster. Tous droits réservés.
+                </footer>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- MODAL EDIT OVERLAY (Caché par défaut) -->
+@if (showEditForm)
+{
+    <div class="modal-overlay" @onclick="CancelEdit"></div>
+}
+<div class="modal-container @(showEditForm ? "show" : "")">
+    <div class="modal-content">
+        <form @onsubmit="SubmitEdit">
+            <div class="modal-header">
+                <h2>✏️ Modifier Étudiant</h2>
+                <button type="button" class="modal-close" @onclick="CancelEdit">✕</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="nom">Nom</label>
+                        <input type="text" id="nom" placeholder="Nom" @bind="editStudentModel.Nom" />
+                    </div>
+                    <div class="form-group">
+                        <label for="prenom">Prénom</label>
+                        <input type="text" id="prenom" placeholder="Prénom" @bind="editStudentModel.Prenom" />
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="phone">Téléphone</label>
+                        <input type="tel" id="phone" placeholder="+228 XX XX XX XX" @bind="editStudentModel.Phone" />
+                    </div>
+                    <div class="form-group">
+                        <label for="sexe">Sexe</label>
+                        <select id="sexe" @bind="editStudentModel.Sexe">
+                            <option value="M">Masculin</option>
+                            <option value="F">Féminin</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="filiere">Filière</label>
+                        <select id="filiere" @bind="editStudentModel.Filiere">
+                            <option value="">Sélectionner une filière</option>
+                            <option value="ASI">ASI</option>
+                            <option value="IABD">IABD</option>
+                            <option value="MD">MD</option>
+                            <option value="BF">BF</option>
+                            <option value="MGMT">MGMT</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="classe">Classe</label>
+                        <input type="text" id="classe" placeholder="10A, 10B..." @bind="editStudentModel.IdClasse" />
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="dob">Date de Naissance</label>
+                        <input type="date" id="dob" @bind="editStudentModel.DateOfBirth" />
+                    </div>
+                    <div class="form-group">
+                        <label for="status">Statut</label>
+                        <select id="status" @bind="editStudentModel.Status">
+                            <option value="1">Actif</option>
+                            
+                            <option value="0">Inactif</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group full-width">
+                    <label for="address">Adresse</label>
+                    <input type="text" id="address" placeholder="Adresse complète" @bind="editStudentModel.Address" />
+                </div>
+
+                <div class="form-group full-width">
+                    <label for="absences">Heures d'Absence</label>
+                    <input type="number" id="absences" min="0" @bind="editStudentModel.AbsenceHours" />
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="secondary-button" @onclick="CancelEdit">
+                    Annuler
+                </button>
+                <button type="submit" class="primary-button">
+                    Enregistrer Modifications
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@code {
+    private string userRole = "Admin";
+    private string searchQuery = "";
+    private string selectedClass = "";
+    private string selectedYear = "";
+    private string selectedStatus = "";
+
+    private bool showEditForm = false;
+    private EditStudentModel editStudentModel = new();
+
+    private List<StudentItem> allStudents = new();
+    private List<string> availableClasses = new();
+    private List<string> availableYears = new();
+    private Dictionary<int, string> classDictionary = new();
+    protected override async Task OnInitializedAsync()
+    {
+        userRole = await SecureStorage.GetAsync("userRole") ?? "etudiants";
+
+        if(userRole != "Admin")
+        {
+            Nav.NavigateTo("/profile"); 
+        }
+
+        var classes = await Auth.Selector("*", "classes");
+        if (classes.Rows.Count > 0)
+        {
+            classDictionary.Clear();
+            foreach (DataRow row in classes.Rows)
+            {
+                int classId = row.IsNull("id_classe") ? 0 : Convert.ToInt32(row["id_classe"]);
+                string className = row.IsNull("libelle") ? "" : row["libelle"].ToString()! + " " + (row.IsNull("filiere") ? "" : row["filiere"].ToString()!);
+                availableClasses.Add(className);
+                classDictionary[classId] = className;
+            }
+        }
+
+        var results = await Auth.Selector("*", "etudiants order by nom asc");
+
+        if(results.Rows.Count > 0)
+        {
+            allStudents.Clear();
+        }
+        foreach(DataRow row in results.Rows)
+        {
+            string vstatus = row.IsNull("statu") 
+                ? "0" 
+                : (row["statu"].ToString() == "True" ? "1" : "0");
+
+            int classId = row.IsNull("id_classe") ? 0 : Convert.ToInt32(row["id_classe"]);
+            string className = classDictionary.ContainsKey(classId) ? classDictionary[classId] : "";
+
+            await JS.InvokeVoidAsync("console.log", $"Student: {row["nom"]} - ClassID: {classId} - ClassName: {className} - Status: {vstatus}");
+
+            allStudents.Add(new StudentItem(
+                row.IsNull("id_etud") ? 0 : Convert.ToInt32(row["id_etud"]),
+                row.IsNull("nom") ? "" : row["nom"].ToString()!,
+                row.IsNull("prenom") ? "" : row["prenom"].ToString()!,
+                row.IsNull("matricule") ? "" : row["matricule"].ToString()!,
+                row.IsNull("num") ? "" : row["num"].ToString()!,
+                row.IsNull("filiere") ? "" : row["filiere"].ToString()!,
+                row.IsNull("addresse") ? "" : row["addresse"].ToString()!,
+                row.IsNull("dob") ? DateTime.Today : Convert.ToDateTime(row["dob"]),
+                row.IsNull("doa") ? DateTime.Today : Convert.ToDateTime(row["doa"]),
+                vstatus,
+                row.IsNull("id_classe") ? "" : row["id_classe"].ToString()!,
+                row.IsNull("sexe") ? 'M' : Convert.ToChar(row["sexe"]),
+                row.IsNull("nb_heure_abs") ? 0 : Convert.ToInt32(row["nb_heure_abs"]),
+                row.IsNull("img") ? "" : row["img"].ToString()!,
+                row.IsNull("id_user") ? 0 : Convert.ToInt32(row["id_user"]),
+                0,
+                className
+            ));
+        }
+
+        LoadMockData();
+    }
+
+    private void LoadMockData()
+    {
+        // availableClasses = new() { "10A", "10B", "10C", "11A", "11B", "9A", "9B" };
+        availableYears = new() { "2024-2025", "2023-2024", "2022-2023" };
+
+        // allStudents = new()
+        // {
+        //     new StudentItem(126, "azetor gan", "nouvikito", "SG-2127", "", "ASI", "Lomé", DateTime.Parse("2003-01-01"), DateTime.Parse("2025-12-27"), "Active", "10A", "M", 0, "", 0, 85.5m),
+        //     new StudentItem(125, "DIALLO", "Etudiant25-5", "SG-2126", "+228 90 25 35 55", "BF", "Lomé", DateTime.Parse("2003-01-01"), DateTime.Parse("2025-12-27"), "Active", "10B", "M", 25, "", 0, 88.5m),
+        //     new StudentItem(124, "TRAORE", "Etudiant25-4", "SG-2125", "+228 90 25 28 44", "MD", "Lomé", DateTime.Parse("2003-01-01"), DateTime.Parse("2025-12-27"), "Active", "10C", "M", 25, "", 0, 91.2m),
+        //     new StudentItem(123, "NDIAYE", "Etudiant25-3", "SG-2124", "+228 90 25 21 33", "BF", "Lomé", DateTime.Parse("2003-01-01"), DateTime.Parse("2025-12-27"), "Active", "11A", "M", 25, "", 0, 84.9m),
+        //     new StudentItem(122, "KODJO", "Etudiant25-2", "SG-2123", "+228 90 25 14 22", "ASI", "Lomé", DateTime.Parse("2003-01-01"), DateTime.Parse("2025-12-27"), "Active", "11B", "M", 25, "", 0, 79.8m),
+        //     new StudentItem(121, "TOURE", "Etudiant25-1", "SG-2122", "+228 90 25 07 11", "IABD", "Lomé", DateTime.Parse("2003-01-01"), DateTime.Parse("2025-12-27"), "On Leave", "9A", "M", 25, "", 0, 72.1m),
+        //     new StudentItem(120, "DIOP", "Étudiant Test", "SG-2121", "+228 90 25 00 00", "MD", "Lomé", DateTime.Parse("2004-05-15"), DateTime.Parse("2025-12-27"), "Active", "9B", "F", 10, "", 0, 89.3m),
+        // };
+    }
+
+    // ========== FILTRAGE ==========
+    private List<StudentItem> filteredStudents
+    {
+        get => allStudents
+            .Where(s => 
+                (string.IsNullOrWhiteSpace(searchQuery) || 
+                 s.Nom.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                 s.Prenom.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                 s.Matricule.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)) &&
+                (string.IsNullOrWhiteSpace(selectedClass) || s.classename == selectedClass) &&
+                (string.IsNullOrWhiteSpace(selectedYear) || s.DateOfAdmission.Year.ToString() == selectedYear) &&
+                (string.IsNullOrWhiteSpace(selectedStatus) || s.Status == selectedStatus)
+            )
+            .OrderBy(s => s.Nom)
+            .ThenBy(s => s.Prenom)
+            .ToList();
+    }
+
+    // ========== ACTIONS ==========
+    private void OpenAddModal()
+    {
+        // Fonctionnalité retirée
+    }
+
+    private async Task ViewStudent(StudentItem student)
+    {
+        // ============================================================
+        // 🔴 ZONE À COMPLÉTER : Navigation vers profil de l'étudiant
+        // ============================================================
+        // TODO:
+        // Nav.NavigateTo($"/students/{student.IdEtud}");
+        // ============================================================
+
+        await JS.InvokeVoidAsync("alert", $"Profil de {student.Nom} {student.Prenom}");
+    }
+
+    private void EditStudent(StudentItem student)
+    {
+        editStudentModel = new EditStudentModel
+        {
+            IdEtud = student.IdEtud,
+            Nom = student.Nom,
+            Prenom = student.Prenom,
+            Phone = student.Phone,
+            Filiere = student.Filiere,
+            Address = student.Address,
+            DateOfBirth = student.DateOfBirth,
+            Status = student.Status,
+            AbsenceHours = student.AbsenceHours,
+            Sexe = student.Sexe,
+            IdClasse = student.IdClasse ?? "",
+            img = student.Image,
+            Doa = student.DateOfAdmission
+        };
+        showEditForm = true;
+    }
+
+    private void CancelEdit()
+    {
+        editStudentModel = new EditStudentModel();
+        showEditForm = false;
+    }
+
+    private async Task SubmitEdit()
+    {
+        if (string.IsNullOrWhiteSpace(editStudentModel.Nom) || string.IsNullOrWhiteSpace(editStudentModel.Prenom))
+        {
+            await JS.InvokeVoidAsync("alert", "Nom et prénom sont requis.");
+            return;
+        }
+
+        // ============================================================
+        // 🔴 ZONE À COMPLÉTER : Mise à jour en BD
+        // ============================================================
+        // TODO:
+        // await Auth.UpdateStudent(
+        //     editStudentModel.IdEtud,
+        //     editStudentModel.Nom,
+        //     editStudentModel.Prenom,
+        //     editStudentModel.Phone,
+        //     editStudentModel.Filiere,
+        //     editStudentModel.Address,
+        //     editStudentModel.DateOfBirth,
+        //     editStudentModel.Status,
+        //     editStudentModel.AbsenceHours,
+        //     editStudentModel.Sexe,
+        //     editStudentModel.IdClasse
+        // );
+        // ============================================================
+        var mail = await Auth.Selector("u.email", "utilisateurs u join etudiants e on u.id_user = e.id_user where e.id_etud=" + editStudentModel.IdEtud);
+        string vmail = "";
+        if(mail.Rows.Count > 0)
+        {
+            vmail = mail.Rows[0]["email"]+"";
+        }
+        var classe = classDictionary.ContainsKey(Convert.ToInt32(editStudentModel.IdClasse))
+            ? classDictionary[Convert.ToInt32(editStudentModel.IdClasse)]
+            : "B1";
+        classe = classe.Substring(0, 2);
+        await JS.InvokeVoidAsync("console.log", $"Updating student ID {editStudentModel.IdEtud} with class {classe}" + " " + classDictionary[Convert.ToInt32(editStudentModel.IdClasse)] + " " + editStudentModel.IdClasse);
+        bool success = await Auth.updater(editStudentModel.Nom, editStudentModel.Prenom, editStudentModel.Phone, classe, editStudentModel.Filiere, editStudentModel.Address, editStudentModel.AbsenceHours, editStudentModel.Sexe, 0, vmail, "etudiants", editStudentModel.DateOfBirth, editStudentModel.img, Convert.ToInt32(editStudentModel.Status),editStudentModel.Doa);
+        if (success)
+        {
+            var email = await Auth.Selector("email", "utilisateurs u join etudiants e on u.id_user = e.id_user where e.id_etud=" + editStudentModel.IdEtud);
+            string vemail = "";
+            if (email.Rows.Count > 0)
+            {
+                vemail = email.Rows[0]["email"] + "";
+            }
+            var template = $$"""
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Modifications apportées à votre compte</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #f3f4f6;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #111827;
+        }
+        .wrapper {
+            width: 100%;
+            padding: 24px 0;
+        }
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+            overflow: hidden;
+        }
+        .header {
+            padding: 18px 24px;
+            background: linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%);
+            color: #ffffff;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 700;
+        }
+        .content {
+            padding: 22px 24px 20px;
+        }
+        .content p {
+            font-size: 14px;
+            line-height: 1.6;
+            margin: 0 0 12px;
+            color: #374151;
+        }
+        .info-block {
+            margin: 16px 0;
+            padding: 12px 14px;
+            background: #f0f9ff;
+            border-radius: 8px;
+            border-left: 3px solid #2563eb;
+        }
+        .info-line {
+            font-size: 13px;
+            color: #1e40af;
+            font-weight: 600;
+        }
+        .button-wrapper {
+            text-align: center;
+            margin: 16px 0;
+        }
+        .primary-link {
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 999px;
+            background: #2563eb;
+            color: #ffffff !important;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .primary-link:hover {
+            background: #1d4ed8;
+        }
+        .cta-text {
+            font-size: 12px;
+            color: #6b7280;
+            text-align: center;
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer {
+            padding: 14px 24px;
+            background: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+            font-size: 11px;
+            color: #9ca3af;
+            text-align: center;
+        }
+        @media (max-width: 600px) {
+            .container {
+                border-radius: 0;
+            }
+            .content {
+                padding: 18px 16px 14px;
+            }
+            .header {
+                padding: 14px 16px;
+            }
+            .footer {
+                padding: 12px 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <div class="container">
+        <div class="header">
+            <h1>✏️ Modifications apportées à votre compte</h1>
+        </div>
+
+        <div class="content">
+            <p>Bonjour <strong>{{editStudentModel.Nom}} {{editStudentModel.Prenom}}</strong>,</p>
+
+            <p>
+                Des modifications ont été apportées à votre compte GradeMaster.
+                Connectez-vous pour consulter et valider ces changements.
+            </p>
+
+            <div class="info-block">
+                <div class="info-line">
+                    Votre profil a été mis à jour
+                </div>
+            </div>
+
+            
+
+            <p>
+                Si vous n'êtes pas à l'origine de ces modifications ou si vous
+                trouvez des informations incorrectes, contactez immédiatement
+                le service de scolarité.
+            </p>
+
+            <div class="cta-text">
+                Accédez à votre espace personnel pour plus de détails.
+            </div>
+        </div>
+
+        <div class="footer">
+            © 2025 GradeMaster. Tous droits réservés.
+        </div>
+    </div>
+</div>
+</body>
+</html>
+
+
+""";
+
+            await Auth.SendEmailAsync(vemail, "Modification de votre compte GradeMaster", template);
+        }
+        var index = allStudents.FindIndex(s => s.IdEtud == editStudentModel.IdEtud);
+        if (index >= 0)
+        {
+            allStudents[index] = new StudentItem(
+                editStudentModel.IdEtud,
+                editStudentModel.Nom,
+                editStudentModel.Prenom,
+                allStudents[index].Matricule,
+                editStudentModel.Phone,
+                editStudentModel.Filiere,
+                editStudentModel.Address,
+                editStudentModel.DateOfBirth,
+                allStudents[index].DateOfAdmission,
+                editStudentModel.Status,
+                editStudentModel.IdClasse,
+                editStudentModel.Sexe,
+                editStudentModel.AbsenceHours,
+                "",
+                allStudents[index].IdUser,
+                allStudents[index].AverageGrade,
+                ""
+            );
+        }
+
+        showEditForm = false;
+        editStudentModel = new EditStudentModel();
+        await JS.InvokeVoidAsync("alert", "✅ Étudiant mis à jour avec succès.");
+        StateHasChanged();
+    }
+
+    private async Task DeleteStudent(StudentItem student)
+    {
+        bool confirmed = await JS.InvokeAsync<bool>(
+            "confirm",
+            $"Êtes-vous sûr de vouloir supprimer {student.Nom} {student.Prenom} ?"
+        );
+
+        if (confirmed)
+        {
+            // ============================================================
+            // 🔴 ZONE À COMPLÉTER : Suppression en BD
+            // ============================================================
+            // TODO:
+            // await Auth.DeleteStudent(student.IdEtud);
+            // ============================================================
+            bool success = await Auth.delstudent(student.IdEtud);
+            if(success)
+            {
+                var email = await Auth.Selector("email", "utilisateurs u join etudiants e on u.id_user = e.id_user where e.id_etud=" + student.IdEtud);
+               string vemail = "";
+                if(email.Rows.Count > 0)
+                {
+                    vemail = email.Rows[0]["email"]+"";
+                }
+               var template=$$"""
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Suppression de votre compte</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #f3f4f6;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #111827;
+        }
+        .wrapper {
+            width: 100%;
+            padding: 24px 0;
+        }
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+            overflow: hidden;
+        }
+        .header {
+            padding: 18px 24px;
+            background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+            color: #ffffff;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 700;
+        }
+        .content {
+            padding: 22px 24px 20px;
+        }
+        .content p {
+            font-size: 14px;
+            line-height: 1.6;
+            margin: 0 0 12px;
+            color: #374151;
+        }
+        .info-block {
+            margin: 16px 0;
+            padding: 12px 14px;
+            background: #fef2f2;
+            border-radius: 8px;
+            border-left: 3px solid #dc2626;
+        }
+        .info-line {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            margin-bottom: 6px;
+        }
+        .info-line:last-child {
+            margin-bottom: 0;
+        }
+        .info-label {
+            color: #6b7280;
+            font-weight: 500;
+        }
+        .info-value {
+            font-weight: 600;
+            color: #111827;
+        }
+        .important-notice {
+            font-size: 12px;
+            color: #9ca3af;
+            text-align: center;
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid #e5e7eb;
+            font-style: italic;
+        }
+        .footer {
+            padding: 14px 24px;
+            background: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+            font-size: 11px;
+            color: #9ca3af;
+            text-align: center;
+        }
+        @media (max-width: 600px) {
+            .container {
+                border-radius: 0;
+            }
+            .content {
+                padding: 18px 16px 14px;
+            }
+            .header {
+                padding: 14px 16px;
+            }
+            .footer {
+                padding: 12px 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <div class="container">
+        <div class="header">
+            <h1>⚠️ Suppression de votre compte</h1>
+        </div>
+
+        <div class="content">
+            <p>Bonjour <strong>{{student.Nom}} {{student.Prenom}}</strong>,</p>
+
+            <p>
+                Nous vous informons que votre compte GradeMaster a été supprimé
+                de la base de données de l'établissement.
+            </p>
+
+            <div class="info-block">
+                <div class="info-line">
+                    <span class="info-label">Nom</span>
+                    <span class="info-value">{{student.Nom}} {{student.Prenom}}</span>
+                </div>
+                <div class="info-line">
+                    <span class="info-label">Classe</span>
+                    <span class="info-value">{{student.classename}}</span>
+                </div>
+                <div class="info-line">
+                    <span class="info-label">Matricule</span>
+                    <span class="info-value">{{student.Matricule}}</span>
+                </div>
+                <div class="info-line">
+                   
+                </div>
+            </div>
+
+            <p>
+                <strong>Conséquences :</strong>
+            </p>
+            <ul style="margin: 8px 0 12px; padding-left: 20px; font-size: 14px; color: #374151;">
+                <li>Vous ne pourrez plus accéder à votre compte GradeMaster</li>
+                <li>Vos données académiques seront conservées à titre archivé</li>
+                <li>Vos bulletins et résultats resteront disponibles auprès de l'établissement</li>
+            </ul>
+
+            <p>
+                Si cette suppression a été effectuée par erreur ou si vous avez des questions,
+                veuillez contacter immédiatement le service de scolarité de l'établissement.
+            </p>
+
+            <div class="important-notice">
+                Cet email confirme la suppression définitive de votre compte.
+            </div>
+        </div>
+
+        <div class="footer">
+            © 2025 GradeMaster. Tous droits réservés.
+        </div>
+    </div>
+</div>
+</body>
+</html>
+""";
+
+                await Auth.SendEmailAsync(vemail, "Suppression de votre compte GradeMaster", template);
+            }
+            allStudents.Remove(student);
+            await JS.InvokeVoidAsync("alert", "✅ Étudiant supprimé avec succès.");
+            StateHasChanged();
+        }
+    }
+
+    // ========== UTILITAIRES ==========
+    private int CalculateAge(DateTime dob)
+    {
+        var today = DateTime.Today;
+        var age = today.Year - dob.Year;
+        if (dob.Date > today.AddYears(-age)) age--;
+        return age;
+    }
+
+    private string GetStatusLabel(string status) => status switch
+    {
+        "1" => "✅ Actif",
+        "On Leave" => "⏸️ En congé",
+        "0" => "❌ Inactif",
+        _ => status
+    };
+
+    private string GetStatusClass(string status) => status switch
+    {
+        "1" => "status-active",
+        "On Leave" => "status-leave",
+        "0" => "status-inactive",
+        _ => ""
+    };
+
+    // ========== MODELS ==========
+    record StudentItem(
+        int IdEtud,
+        string Nom,
+        string Prenom,
+        string Matricule,
+        string Phone,
+        string Filiere,
+        string Address,
+        DateTime DateOfBirth,
+        DateTime DateOfAdmission,
+        string Status,
+        string IdClasse,
+        char Sexe,
+        int AbsenceHours,
+        string Image,
+        int IdUser,
+        decimal AverageGrade,
+        string classename
+    );
+
+    class EditStudentModel
+    {
+        public int IdEtud { get; set; }
+        public string Nom { get; set; } = "";
+        public string Prenom { get; set; } = "";
+        public string Phone { get; set; } = "";
+        public string Filiere { get; set; } = "";
+        public string Address { get; set; } = "";
+        public DateTime DateOfBirth { get; set; } = DateTime.Today;
+        public string Status { get; set; } = "1";
+        public int AbsenceHours { get; set; } = 0;
+        public char Sexe { get; set; } = 'M';
+        public string IdClasse { get; set; } = "";
+        public string img { get; set; } = "";
+        public DateTime Doa { get; set; } = DateTime.Today;
+        
+    }
+}
