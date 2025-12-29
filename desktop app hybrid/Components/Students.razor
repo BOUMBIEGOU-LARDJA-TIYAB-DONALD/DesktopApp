@@ -649,10 +649,11 @@
             // TODO:
             // await Auth.DeleteStudent(student.IdEtud);
             // ============================================================
+            var email = await Auth.Selector("email", "utilisateurs u join etudiants e on u.id_user = e.id_user where e.id_etud=" + student.IdEtud);
             bool success = await Auth.delstudent(student.IdEtud);
             if(success)
             {
-                var email = await Auth.Selector("email", "utilisateurs u join etudiants e on u.id_user = e.id_user where e.id_etud=" + student.IdEtud);
+                
                string vemail = "";
                 if(email.Rows.Count > 0)
                 {
