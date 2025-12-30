@@ -41,11 +41,17 @@
                         <button class="secondary-button" @onclick="EditStudent">✏️ Modifier @userRole</button>
                         @if(userRole=="etudiants"){
                        
-                        <button class="secondary-button" @onclick="ExportPDF">📥 Exporter Bulletin (PDF)</button>
-                        <button class="secondary-button" @onclick="PrintProfile">🖨️ Imprimer</button>
-                        }
 
-                        <button class="primary-button" @onclick="QuickAddGrade">⚡ Ajouter Note Rapide</button>
+
+                            <a href="/bulletins"> <button class="secondary-button">📥 Exporter Bulletin (PDF)</button></a>
+                           
+                        }
+@if (userRole == "enseignants" || userRole == "Admin")
+                        {
+                            <a href="/grades">
+                                <button class="primary-button" @onclick="QuickAddGrade">⚡ Ajouter Note Rapide</button> 
+                            </a>          
+                        }
                     </div>
                 </div>
 
@@ -368,6 +374,7 @@
 
             foreach (DataRow row in academicresult.Rows)
             {
+                await JS.InvokeVoidAsync("console.log", $"Processing row for subject: {row["nom_mat"]} {row["type_note"]}  {row["valeur"]}");
                 string subject = row["nom_mat"] + "";
                 int assignmentGrade = 0;
                 int examGrade = 0;
@@ -380,20 +387,31 @@
                     examGrade = int.TryParse(row["valeur"] + "", out var val) ? val : 0;
                 }
                 decimal average = (assignmentGrade + examGrade) / 2m;
-                var existingGrade = academicGrades.FirstOrDefault(g => g.Subject == subject);
-                if (existingGrade != null)
+                
+                var index = academicGrades.FindIndex(g => g.Subject == subject);
+
+                if (index != -1)
                 {
-                    // Mettre à jour les notes existantes
-                    existingGrade = existingGrade with
-                        {
-                            AssignmentGrade = assignmentGrade != 0 ? assignmentGrade : existingGrade.AssignmentGrade,
-                            ExamGrade = examGrade != 0 ? examGrade : existingGrade.ExamGrade,
-                            Average = (existingGrade.AssignmentGrade + existingGrade.ExamGrade) / 2m
-                        };
+                    var updated = academicGrades[index] with
+                    {
+                        AssignmentGrade = assignmentGrade != 0
+                            ? assignmentGrade
+                            : academicGrades[index].AssignmentGrade,
+
+                        ExamGrade = examGrade != 0
+                            ? examGrade
+                            : academicGrades[index].ExamGrade
+                    };
+
+                    updated = updated with
+                    {
+                        Average = (updated.AssignmentGrade + updated.ExamGrade) / 2m
+                    };
+
+                    academicGrades[index] = updated;
                 }
                 else
                 {
-                    // Ajouter une nouvelle entrée
                     academicGrades.Add(new AcademicGradeItem(subject, assignmentGrade, examGrade, average));
                 }
             }
@@ -476,7 +494,7 @@
         editStudent.Guardian = studentData.Guardian;
         editStudent.link = studentData.link;
         editStudent.doa = DateTime.TryParse(studentData.EnrollmentDate, out var doa) ? doa : DateTime.Today;
-
+        editStudent.Filiere = filiere;
 
         showEditForm = true;
 

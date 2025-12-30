@@ -506,6 +506,46 @@ public async Task<bool> sendotp(string toemail , string otp,string username)
             }
         }
 
-
+        public async Task<bool> ResetPassword(string username, string oldPassword, string newPassword)
+        {
+            try
+            {
+                await using var conn = new SqlConnection(_cs);
+                await conn.OpenAsync();
+                
+                // Vérifier d'abord l'ancien mot de passe
+                const string checkSql = "SELECT COUNT(*) FROM utilisateurs WHERE (username = @username OR email = @username) AND pass = @oldPassword";
+                await using var checkCmd = new SqlCommand(checkSql, conn);
+                checkCmd.Parameters.AddWithValue("@username", username);
+                checkCmd.Parameters.AddWithValue("@oldPassword", oldPassword);
+                
+                int count = (int)await checkCmd.ExecuteScalarAsync();
+                
+                if (count == 0)
+                {   
+                    Debug.WriteLine(count);
+                    Debug.WriteLine(username);
+                    Debug.WriteLine(oldPassword);
+                    Debug.WriteLine(newPassword);
+                    return false; // Ancien mot de passe incorrect
+                }
+                
+                // Mettre à jour le mot de passe
+                const string updateSql = "UPDATE utilisateurs SET pass = @newPassword WHERE (username = @username OR email = @username)";
+                await using var updateCmd = new SqlCommand(updateSql, conn);
+                updateCmd.Parameters.AddWithValue("@username", username);
+                updateCmd.Parameters.AddWithValue("@newPassword", newPassword);
+                
+                int rowsAffected = await updateCmd.ExecuteNonQueryAsync();
+                
+                Debug.WriteLine($"Password reset for {username}: {rowsAffected} row(s) affected");
+                return rowsAffected > 0;
+            }
+            catch (SqlException ex)
+            {
+                Debug.WriteLine("SQL ERROR: " + ex.Message);
+                throw;
+            }
+        }
     }
 }

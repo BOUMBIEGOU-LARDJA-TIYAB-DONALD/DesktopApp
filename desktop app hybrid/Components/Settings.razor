@@ -1,0 +1,395 @@
+﻿@inject AuthService Auth
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@using System.Data
+
+<div class="app-shell">
+    <div class="sidebar">
+        <div class="logo-inline">
+            <img class="logo-icon" src="https://i.ibb.co/yF9Ct6Vh/e45cad7b-df02-42d6-a6ee-1cbb9de115ab.jpg">
+            <div class="logo-text">GradeMaster</div>
+        </div>
+        <Navbar />
+        <div class="sidebar-footer">
+            <a href="/login" class="nav-item">🚪 Déconnexion</a>
+        </div>
+    </div>
+
+    <div class="main">
+        <header class="topbar">
+            <div class="topbar-title">Paramètres du Compte</div>
+            <div class="topbar-right">
+                <span class="topbar-role">@userRole</span>
+                <div class="topbar-user">
+                    <span class="avatar"></span>
+                    <a href="/login" class="link-button">Déconnexion</a>
+                </div>
+            </div>
+        </header>
+
+        <div class="content profile-page">
+            <div class="content-inner">
+
+                <!-- HEADER: Titre + Actions -->
+                <div class="profile-header-row">
+                    <h1>Paramètres du Compte</h1>
+                    <div class="profile-header-actions">
+                        @if (!showPasswordForm)
+                        {
+                            <button class="primary-button" type="button" @onclick="() => showPasswordForm = true">
+                                🔑 Changer le mot de passe
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                <!-- TOP GRID: Avatar + Informations Compte -->
+                <div class="profile-top-grid">
+                    <!-- Avatar Card -->
+                    <div class="profile-avatar-card">
+                        @if (!string.IsNullOrEmpty(currentUser.PhotoUrl))
+                        {
+                            <img class="profile-avatar-large" src="@currentUser.PhotoUrl" alt="Photo de profil" style="border-radius:50%; object-fit:cover;" />
+                        }
+                        else
+                        {
+                            <div class="profile-avatar-large" style="background: linear-gradient(135deg, #2563eb, #3b82f6);"></div>
+                        }
+                    </div>
+
+                    <!-- Account Info Card -->
+                    <div class="profile-details-card">
+                        <div class="panel-header">
+                            <h2>Informations du Compte</h2>
+                        </div>
+                        <div class="profile-details-grid">
+                            <div class="detail-row">
+                                <span>Nom d'utilisateur:</span>
+                                <span>@currentUser.Username</span>
+                            </div>
+                            <div class="detail-row">
+                                <span>Email:</span>
+                                <span>@currentUser.Email</span>
+                            </div>
+                            <div class="detail-row">
+                                <span>Rôle:</span>
+                                <span>
+                                    <span class="badge" style="@GetRoleBadgeStyle(currentUser.Role)">
+                                        @GetRoleLabel(currentUser.Role)
+                                    </span>
+                                </span>
+                            </div>
+                            <div class="detail-row">
+                                <span>Date de création:</span>
+                                <span>@currentUser.CreatedAt.ToString("dd/MM/yyyy")</span>
+                            </div>
+                            <div class="detail-row">
+                                <span>Dernière connexion:</span>
+                                <span>@currentUser.LastLogin.ToString("dd/MM/yyyy HH:mm")</span>
+                            </div>
+                            <div class="detail-row">
+                                <span>Statut:</span>
+                                <span>
+                                    <span class="badge" style="@(currentUser.IsActive ? "background: rgba(22, 163, 74, 0.1); color: #15803d;" : "background: rgba(220, 38, 38, 0.1); color: #dc2626;")">
+                                        @(currentUser.IsActive ? "Actif" : "Inactif")
+                                    </span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Photo Management Section -->
+                <div class="profile-two-column-section">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h2>🖼️ Gestion de la Photo de Profil</h2>
+                        </div>
+                        <div class="panel-body">
+                            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                                <button class="secondary-button" type="button" @onclick="OpenPhotoUpload">
+                                    📷 Changer la photo
+                                </button>
+                                @if (!string.IsNullOrEmpty(currentUser.PhotoUrl))
+                                {
+                                    <button class="secondary-button" type="button" @onclick="RemovePhoto">
+                                        🗑️ Supprimer la photo
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h2>🔐 Sécurité</h2>
+                        </div>
+                        <div class="panel-body">
+                            @if (!showPasswordForm)
+                            {
+                                <p style="color: #6b7280; font-size: 14px; margin-bottom: 12px;">
+                                    🔒 Votre mot de passe est sécurisé et chiffré.
+                                </p>
+                            }
+                            else
+                            {
+                                <p style="color: #2563eb; font-size: 13px; font-weight: 600;">
+                                    ✏️ Modification du mot de passe en cours...
+                                </p>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Password Reset Form (if active) -->
+                @if (showPasswordForm)
+                {
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h2>🔑 Réinitialiser le Mot de Passe</h2>
+                        </div>
+                        <div class="panel-body">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Ancien mot de passe</label>
+                                    <input type="password" @bind="oldPassword" placeholder="Entrez votre ancien mot de passe" />
+                                </div>
+                                <div class="form-group">
+                                    <label>Nouveau mot de passe</label>
+                                    <input type="password" @bind="newPassword" placeholder="Entrez un nouveau mot de passe (min 6 caractères)" />
+                                </div>
+                                <div class="form-group">
+                                    <label>Confirmer le nouveau mot de passe</label>
+                                    <input type="password" @bind="confirmPassword" placeholder="Confirmez le nouveau mot de passe" />
+                                </div>
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(passwordError))
+                            {
+                                <div style="background: #fee2e2; border: 1px solid #fca5a5; color: #dc2626; padding: 12px; border-radius: 8px; margin-top: 12px; font-size: 13px;">
+                                    @passwordError
+                                </div>
+                            }
+
+                            @if (!string.IsNullOrEmpty(passwordSuccess))
+                            {
+                                <div style="background: #dcfce7; border: 1px solid #86efac; color: #15803d; padding: 12px; border-radius: 8px; margin-top: 12px; font-size: 13px;">
+                                    @passwordSuccess
+                                </div>
+                            }
+
+                            <div class="form-actions" style="margin-top: 16px;">
+                                <button class="secondary-button" type="button" @onclick="CancelPasswordReset">
+                                    Annuler
+                                </button>
+                                <button class="primary-button" type="button" @onclick="ResetPassword">
+                                    💾 Enregistrer le nouveau mot de passe
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <div class="footer-main">
+                    © 2025 GradeMaster. Tous droits réservés.
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string userRole = "";
+    private UserSettings currentUser = new();
+
+    private bool showPasswordForm = false;
+    private string oldPassword = "";
+    private string newPassword = "";
+    private string confirmPassword = "";
+    private string passwordError = "";
+    private string passwordSuccess = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            string username = await SecureStorage.GetAsync("username") ?? "";
+            userRole = await SecureStorage.GetAsync("userRole") ?? "";
+            await JS.InvokeVoidAsync("console.log", $"Chargement des paramètres pour l'utilisateur: {username}, Rôle: {userRole}");
+
+            if (string.IsNullOrEmpty(username))
+            {
+                Nav.NavigateTo("/login", true);
+                return;
+            }
+
+            await LoadUserSettings(username);
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("console.error", $"Erreur d'initialisation: {ex.Message}");
+        }
+    }
+
+    private async Task LoadUserSettings(string username)
+    {
+        userRole = await SecureStorage.GetAsync("userRole") ?? "";
+        try
+        {
+            if (userRole != "Admin")
+            {
+                var result = await Auth.Selector(
+                    "u.id_user, u.username, u.email, e.img",
+                    $"utilisateurs u join {userRole} e on u.id_user=e.id_user",
+                    $"(u.username = '{username}' OR u.email = '{username}')"
+                );
+
+                if (result.Rows.Count > 0)
+                {
+                    var row = result.Rows[0];
+                    currentUser.Username = row["username"]?.ToString() ?? "";
+                    currentUser.Email = row["email"]?.ToString() ?? "";
+                    currentUser.Role = userRole;
+                    currentUser.PhotoUrl = row["img"]?.ToString() ?? "";
+                    currentUser.CreatedAt = DateTime.Now;
+                    currentUser.LastLogin = DateTime.Now;
+                    currentUser.IsActive = true;
+                }
+            }
+            else
+            {
+                var result = await Auth.Selector(
+                    "u.id_user, u.username, u.email",
+                    "utilisateurs u",
+                    $"(u.username = '{username}' OR u.email = '{username}')"
+                );
+
+                if (result.Rows.Count > 0)
+                {
+                    var row = result.Rows[0];
+                    currentUser.Username = row["username"]?.ToString() ?? "";
+                    currentUser.Email = row["email"]?.ToString() ?? "";
+                    currentUser.Role = userRole;
+                    currentUser.CreatedAt = DateTime.Now;
+                    currentUser.LastLogin = DateTime.Now;
+                    currentUser.IsActive = true;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("console.error", $"Erreur de chargement: {ex.Message}");
+        }
+    }
+
+    private async Task ResetPassword()
+    {
+        passwordError = "";
+        passwordSuccess = "";
+
+        if (string.IsNullOrWhiteSpace(oldPassword) || string.IsNullOrWhiteSpace(newPassword))
+        {
+            passwordError = "❌ Veuillez remplir tous les champs.";
+            return;
+        }
+
+        if (newPassword.Length < 6)
+        {
+            passwordError = "❌ Le nouveau mot de passe doit contenir au moins 6 caractères.";
+            return;
+        }
+
+        if (newPassword != confirmPassword)
+        {
+            passwordError = "❌ Les mots de passe ne correspondent pas.";
+            return;
+        }
+
+        try
+        {
+            string username = await SecureStorage.GetAsync("username") ?? "";
+            bool success = await Auth.ResetPassword(username, oldPassword, newPassword);
+
+            if (success)
+            {
+                passwordSuccess = "✅ Mot de passe réinitialisé avec succès !";
+                oldPassword = "";
+                newPassword = "";
+                confirmPassword = "";
+
+                await Task.Delay(2000);
+                showPasswordForm = false;
+                passwordSuccess = "";
+            }
+            else
+            {
+                passwordError = "❌ Ancien mot de passe incorrect.";
+            }
+        }
+        catch (Exception ex)
+        {
+            passwordError = $"❌ Erreur: {ex.Message}";
+        }
+    }
+
+    private void CancelPasswordReset()
+    {
+        showPasswordForm = false;
+        oldPassword = "";
+        newPassword = "";
+        confirmPassword = "";
+        passwordError = "";
+        passwordSuccess = "";
+    }
+
+    private async Task OpenPhotoUpload()
+    {
+        Nav.NavigateTo("/profile", true);
+        return;
+    }
+
+    private async Task RemovePhoto()
+    {
+        bool confirmed = await JS.InvokeAsync<bool>("confirm", "Voulez-vous vraiment supprimer votre photo de profil ?");
+        if (confirmed)
+        {
+            currentUser.PhotoUrl = "";
+            
+            await JS.InvokeVoidAsync("alert", "Photo de profil supprimée.");
+        }
+    }
+
+    private string GetRoleLabel(string role)
+    {
+        return role switch
+        {
+            "Admin" => "Administrateur",
+            "enseignants" => "Enseignant",
+            "etudiants" => "Étudiant",
+            _ => role
+        };
+    }
+
+    private string GetRoleBadgeStyle(string role)
+    {
+        return role switch
+        {
+            "Admin" => "background: rgba(220, 38, 38, 0.1); color: #991b1b; padding: 6px 10px; border-radius: 4px; font-weight: bold;",
+            "enseignants" => "background: rgba(245, 158, 11, 0.1); color: #92400e; padding: 6px 10px; border-radius: 4px; font-weight: bold;",
+            "etudiants" => "background: rgba(22, 163, 74, 0.1); color: #15803d; padding: 6px 10px; border-radius: 4px; font-weight: bold;",
+            _ => "background: #f3f4f6; color: #6b7280; padding: 6px 10px; border-radius: 4px; font-weight: bold;"
+        };
+    }
+
+    class UserSettings
+    {
+        public string Username { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Role { get; set; } = "";
+        public string PhotoUrl { get; set; } = "";
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime LastLogin { get; set; } = DateTime.Now;
+        public bool IsActive { get; set; } = true;
+    }
+}

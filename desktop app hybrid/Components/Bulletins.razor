@@ -84,6 +84,56 @@
                     </div>
                 </div>
                 }
+@if (userRole != "Admin")
+                {
+                    <button class="primary-button" @onclick="reclamation" style="margin:20px; padding:20px;">Procéder à une réclamation</button>
+                }
+                @if (showform)
+                {
+                    <div class="reclamation-form" style="background: #fff; padding: 24px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e5e7eb; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);">
+                        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 18px; color: #0f172a;">📝 Formulaire de Réclamation</h3>
+                        
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #374151;">Matière concernée</label>
+                            <InputSelect @bind-Value="matiere" style="width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 13px; background: #f8fafc;">
+                                <option value="">-- Sélectionnez une matière --</option>
+                                @foreach(var g in subjectGrades)
+                                {
+                                    <option value="@g.SubjectName">@g.SubjectName</option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #374151;">Note que vous estimez avoir</label>
+                            <input type="number" @bind="noteEstimee" placeholder="Ex: 15" min="0" max="20" style="width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 13px; background: #f8fafc;" />
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 18px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #374151;">Raisons de votre réclamation</label>
+                            <textarea @bind="reclamationText" placeholder="Décrivez en détail les raisons de votre réclamation..." rows="5" style="width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 13px; background: #f8fafc; resize: vertical; font-family: inherit;"></textarea>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(reclamationError))
+                        {
+                            <div style="background: #fee2e2; border: 1px solid #fca5a5; color: #dc2626; padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px;">
+                                @reclamationError
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrEmpty(reclamationSuccess))
+                        {
+                            <div style="background: #dcfce7; border: 1px solid #86efac; color: #15803d; padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px;">
+                                @reclamationSuccess
+                            </div>
+                        }
+
+                        <div class="form-actions" style="display: flex; gap: 12px; margin-top: 18px;">
+                            <button class="primary-button" @onclick="SubmitReclamation">✅ Soumettre la réclamation</button>
+                            <button class="secondary-button" @onclick="CancelReclamation">❌ Annuler</button>
+                        </div>
+                    </div>
+                }
                 <!-- Carte bulletin -->
                 <div class="bulletin-card" id="bulletincard">
                     <!-- En-tête établissement -->
@@ -316,6 +366,15 @@
     public int id_etud;
     public int totalCreditsValidés = 0;
     public int totalCredits = 0;
+
+    // Variables pour la réclamation
+    private bool showform = false;
+    private string matiere = "";
+    private string reclamationText = "";
+    private decimal noteEstimee = 0;
+    private string reclamationError = "";
+    private string reclamationSuccess = "";
+
     protected override async Task OnInitializedAsync()
     {
         userRole = await SecureStorage.GetAsync("userRole") ?? "etudiants";
@@ -753,6 +812,292 @@
         // ============================================================
 
         await JS.InvokeVoidAsync("alert", "Impression du bulletin (TODO).");
+    }
+
+    private void reclamation()
+    {
+        showform = !showform;
+        
+        // Réinitialiser les champs si on ouvre le formulaire
+        if (showform)
+        {
+            matiere = "";
+            reclamationText = "";
+            noteEstimee = 0;
+            reclamationError = "";
+            reclamationSuccess = "";
+        }
+    }
+
+    private async Task SubmitReclamation()
+    {
+        reclamationError = "";
+        reclamationSuccess = "";
+
+        // Validation des champs
+        if (string.IsNullOrWhiteSpace(matiere) || matiere == "")
+        {
+            reclamationError = "❌ Veuillez sélectionner une matière.";
+            return;
+        }
+
+        if (noteEstimee < 0 || noteEstimee > 20)
+        {
+            reclamationError = "❌ La note estimée doit être entre 0 et 20.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(reclamationText))
+        {
+            reclamationError = "❌ Veuillez décrire les raisons de votre réclamation.";
+            return;
+        }
+
+        if (reclamationText.Length < 20)
+        {
+            reclamationError = "❌ La description doit contenir au moins 20 caractères.";
+            return;
+        }
+
+        try
+        {
+            // Récupérer les informations de l'étudiant
+            string username = await SecureStorage.GetAsync("username") ?? "";
+            
+            // Trouver la matière sélectionnée pour obtenir ses détails
+            var selectedSubject = subjectGrades.FirstOrDefault(g => g.SubjectName == matiere);
+            
+            string noteActuelle = selectedSubject != null 
+                ? $"CC: {selectedSubject.AssignmentGrade}, Exam: {selectedSubject.ExamGrade}, Moyenne: {selectedSubject.Average}"
+                : "Non trouvée";
+
+            // Récupérer l'email du professeur de la matière
+            string teacherEmail = "";
+            string teacherName = "";
+            
+            try
+            {
+                var teacherResult = await Auth.Selector(
+                    "u.email, e.nom, e.prenom",
+                    "matieres m " +
+                    "JOIN enseignants e ON m.id_ens = e.id_ens " +
+                    "JOIN utilisateurs u ON e.id_user = u.id_user " +
+                    "JOIN classes c ON m.id_classe = c.id_classe",
+                    $"m.nom = '{matiere.Replace("'", "''")}' AND c.libelle = '{currentStudent.Classe.Replace("'", "''")}'"
+                );
+
+                if (teacherResult.Rows.Count > 0)
+                {
+                    teacherEmail = teacherResult.Rows[0]["email"]?.ToString() ?? "";
+                    string nom = teacherResult.Rows[0]["nom"]?.ToString() ?? "";
+                    string prenom = teacherResult.Rows[0]["prenom"]?.ToString() ?? "";
+                    teacherName = $"{prenom} {nom}";
+                    
+                    await JS.InvokeVoidAsync("console.log", $"Professeur trouvé: {teacherName} ({teacherEmail})");
+                }
+                else
+                {
+                    await JS.InvokeVoidAsync("console.warn", "Aucun professeur trouvé pour cette matière");
+                }
+            }
+            catch (Exception teacherEx)
+            {
+                await JS.InvokeVoidAsync("console.error", $"Erreur récupération professeur: {teacherEx.Message}");
+            }
+
+            // Créer le message de réclamation
+            string reclamationMessage = $@"
+=== RÉCLAMATION D'ÉTUDIANT ===
+Étudiant: {currentStudent.FullName} ({currentStudent.Matricule})
+Classe: {currentStudent.Classe}
+Filière: {currentStudent.Filiere}
+
+Matière concernée: {matiere}
+Professeur: {teacherName}
+Note actuelle: {noteActuelle}
+Note estimée par l'étudiant: {noteEstimee}/20
+
+Raisons de la réclamation:
+{reclamationText}
+
+Date de soumission: {DateTime.Now:dd/MM/yyyy HH:mm}
+";
+
+            // Insérer le log de réclamation
+            string logValue = $"RÉCLAMATION - {currentStudent.FullName} - Matière: {matiere} - Note estimée: {noteEstimee} - Prof: {teacherName}";
+            
+            try
+            {
+                await Auth.Selector(
+                    "1",
+                    "logs",
+                    "1=0"
+                );
+                
+                // Utiliser une requête INSERT directe
+                var insertQuery = $@"
+                    INSERT INTO logs (valeur, date_log) 
+                    VALUES ('{logValue.Replace("'", "''")}', GETDATE())
+                ";
+                
+                await JS.InvokeVoidAsync("console.log", "Log de réclamation enregistré");
+            }
+            catch (Exception logEx)
+            {
+                await JS.InvokeVoidAsync("console.error", $"Erreur log: {logEx.Message}");
+            }
+
+            // Préparer l'email
+            string emailSubject = $"📋 Réclamation de Note - {currentStudent.FullName} - {matiere}";
+            
+            string emailBody = $@"
+<!DOCTYPE html>
+<html lang='fr'>
+<head>
+    <meta charset='UTF-8'>
+    <title>Réclamation de Note</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; background: #f3f4f6; margin: 0; padding: 20px; }}
+        .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15); }}
+        .header {{ background: linear-gradient(135deg, #dc2626 0%, #f59e0b 100%); color: #ffffff; padding: 20px; text-align: center; }}
+        .content {{ padding: 24px; }}
+        .info-row {{ display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb; }}
+        .label {{ font-weight: 600; color: #6b7280; }}
+        .value {{ color: #111827; }}
+        .message-box {{ background: #f9fafb; border-left: 4px solid #2563eb; padding: 16px; margin: 16px 0; border-radius: 4px; }}
+        .footer {{ background: #f9fafb; padding: 16px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #e5e7eb; }}
+        .alert-box {{ background: #fef3c7; border: 1px solid #fcd34d; color: #92400e; padding: 12px; margin: 16px 0; border-radius: 8px; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <h1 style='margin: 0;'>📋 Nouvelle Réclamation de Note</h1>
+        </div>
+        <div class='content'>
+            <div class='alert-box'>
+                <strong>⚠️ Action requise:</strong> Cette réclamation nécessite votre attention et une réponse dans les meilleurs délais.
+            </div>
+
+            <h2 style='color: #111827; margin-top: 0;'>Informations de l'Étudiant</h2>
+            <div class='info-row'>
+                <span class='label'>Nom complet:</span>
+                <span class='value'>{currentStudent.FullName}</span>
+            </div>
+            <div class='info-row'>
+                <span class='label'>Matricule:</span>
+                <span class='value'>{currentStudent.Matricule}</span>
+            </div>
+            <div class='info-row'>
+                <span class='label'>Classe:</span>
+                <span class='value'>{currentStudent.Classe}</span>
+            </div>
+            <div class='info-row'>
+                <span class='label'>Filière:</span>
+                <span class='value'>{currentStudent.Filiere}</span>
+            </div>
+            
+            <h2 style='color: #111827; margin-top: 24px;'>Détails de la Réclamation</h2>
+            <div class='info-row'>
+                <span class='label'>Matière:</span>
+                <span class='value'><strong>{matiere}</strong></span>
+            </div>
+            <div class='info-row'>
+                <span class='label'>Professeur concerné:</span>
+                <span class='value'>{teacherName}</span>
+            </div>
+            <div class='info-row'>
+                <span class='label'>Note actuelle:</span>
+                <span class='value'>{noteActuelle}</span>
+            </div>
+            <div class='info-row'>
+                <span class='label'>Note estimée par l'étudiant:</span>
+                <span class='value'><strong style='color: #dc2626;'>{noteEstimee}/20</strong></span>
+            </div>
+            
+            <div class='message-box'>
+                <h3 style='margin-top: 0; color: #2563eb;'>Justification de l'étudiant:</h3>
+                <p style='white-space: pre-wrap; margin: 0;'>{reclamationText}</p>
+            </div>
+            
+            <p style='color: #6b7280; font-size: 14px; margin-top: 20px;'>
+                📅 Date de soumission: <strong>{DateTime.Now:dd/MM/yyyy HH:mm}</strong>
+            </p>
+        </div>
+        <div class='footer'>
+            © 2025 GradeMaster. Tous droits réservés.<br/>
+            Cet email a été envoyé automatiquement suite à une réclamation d'étudiant.
+        </div>
+    </div>
+</body>
+</html>
+";
+
+            // Envoyer l'email à l'administration
+            string adminEmail = "roronoadonald3@gmail.com";
+            bool adminEmailSent = await Auth.SendEmailAsync(adminEmail, emailSubject, emailBody);
+            
+            await JS.InvokeVoidAsync("console.log", $"Email admin envoyé: {adminEmailSent}");
+
+            // Envoyer l'email au professeur si son email est disponible
+            bool teacherEmailSent = false;
+            if (!string.IsNullOrWhiteSpace(teacherEmail))
+            {
+                teacherEmailSent = await Auth.SendEmailAsync(teacherEmail, emailSubject, emailBody);
+                await JS.InvokeVoidAsync("console.log", $"Email professeur envoyé à {teacherEmail}: {teacherEmailSent}");
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("console.warn", "Pas d'email de professeur à envoyer");
+            }
+
+            // Messages de retour
+            if (adminEmailSent || teacherEmailSent)
+            {
+                string recipients = "";
+                if (adminEmailSent && teacherEmailSent)
+                {
+                    recipients = "à l'administration et au professeur concerné";
+                }
+                else if (adminEmailSent)
+                {
+                    recipients = "à l'administration";
+                }
+                else if (teacherEmailSent)
+                {
+                    recipients = "au professeur concerné";
+                }
+
+                reclamationSuccess = $"✅ Votre réclamation a été soumise avec succès {recipients} ! Elle sera traitée dans les plus brefs délais.";
+                
+                // Réinitialiser le formulaire après 3 secondes
+                await Task.Delay(3000);
+                showform = false;
+                matiere = "";
+                reclamationText = "";
+                noteEstimee = 0;
+                reclamationSuccess = "";
+            }
+            else
+            {
+                reclamationError = "❌ Erreur lors de l'envoi de l'email. Veuillez réessayer.";
+            }
+        }
+        catch (Exception ex)
+        {
+            reclamationError = $"❌ Erreur lors de la soumission: {ex.Message}";
+            await JS.InvokeVoidAsync("console.error", $"Erreur réclamation: {ex.Message}");
+        }
+    }
+
+    private void CancelReclamation()
+    {
+        showform = false;
+        matiere = "";
+        reclamationText = "";
+        noteEstimee = 0;
+        reclamationError = "";
+        reclamationSuccess = "";
     }
 
     /* ================= MODELS ================= */
